@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-surface text-ink font-body antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .section-wrap {
+    @apply py-16 md:py-24;
+  }
+
+  .border-fine {
+    @apply border border-stone/80;
+  }
+
+  .admin-card {
+    @apply rounded-none border-fine bg-paper p-6 shadow-sm;
+  }
+}
