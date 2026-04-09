@@ -12,7 +12,7 @@ export function PublicHeader() {
   const logoWordmarkSrc = `${import.meta.env.BASE_URL}logo-allianz-wordmark.png`;
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-stone/70 bg-paper/90 backdrop-blur">
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-[#163649]/80 bg-[#041B2C]/95 backdrop-blur">
       <div className="container flex h-20 items-center justify-between">
         <Link to={ROUTES.home} className="flex items-center gap-3">
           <img src={logoMarkSrc} alt="Allianz Bienes Raices" className="h-11 w-auto sm:h-12" />
@@ -20,7 +20,7 @@ export function PublicHeader() {
             src={logoWordmarkSrc}
             alt=""
             aria-hidden="true"
-            className="h-6 w-auto sm:h-7"
+            className="h-6 w-auto brightness-0 invert sm:h-7"
           />
         </Link>
 
@@ -30,7 +30,9 @@ export function PublicHeader() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `text-sm transition-colors ${isActive ? "text-ink" : "text-slate hover:text-ink"}`
+                `text-sm transition-colors ${
+                  isActive ? "text-white" : "text-white/70 hover:text-white"
+                }`
               }
             >
               {item.label}
@@ -43,14 +45,14 @@ export function PublicHeader() {
             href="https://wa.me/595981000000"
             target="_blank"
             rel="noreferrer"
-            className="hidden border border-stone px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-ink transition hover:border-ink md:inline-flex"
+            className="hidden border border-white/30 px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-white transition hover:border-white md:inline-flex"
           >
             WhatsApp
           </a>
           <Link
             to={ROUTES.adminLogin}
             aria-label="Ingresar al panel admin"
-            className="inline-flex h-9 w-9 items-center justify-center border border-stone text-ink transition hover:border-ink"
+            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
               <path
