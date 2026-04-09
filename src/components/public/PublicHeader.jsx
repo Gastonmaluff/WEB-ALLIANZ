@@ -8,15 +8,13 @@ const navItems = [
 ];
 
 export function PublicHeader() {
+  const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
+
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-stone/70 bg-paper/90 backdrop-blur">
       <div className="container flex h-20 items-center justify-between">
         <Link to={ROUTES.home} className="flex items-center">
-          <img
-            src="/logo-allianz-mark.png"
-            alt="Allianz Bienes Raices"
-            className="h-12 w-auto"
-          />
+          <img src={logoMarkSrc} alt="Allianz Bienes Raices" className="h-12 w-auto" />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">

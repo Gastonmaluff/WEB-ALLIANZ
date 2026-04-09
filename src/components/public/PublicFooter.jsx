@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "../../router/paths";
 
 export function PublicFooter() {
+  const logoFullSrc = `${import.meta.env.BASE_URL}logo-allianz.png`;
+
   return (
     <footer className="bg-ink text-paper">
       <div className="container grid gap-12 py-16 md:grid-cols-4">
         <div className="md:col-span-2">
           <img
-            src="/logo-allianz.png"
+            src={logoFullSrc}
             alt="Allianz Bienes Raices"
             className="mb-5 h-24 w-auto brightness-0 invert"
           />
