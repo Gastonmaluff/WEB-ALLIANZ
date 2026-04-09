@@ -2,17 +2,26 @@ import { Link } from "react-router-dom";
 import { ROUTES } from "../../router/paths";
 
 export function PublicFooter() {
-  const logoFullSrc = `${import.meta.env.BASE_URL}logo-allianz.png`;
+  const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
+  const logoWordmarkSrc = `${import.meta.env.BASE_URL}logo-allianz-wordmark.png`;
 
   return (
     <footer className="bg-ink text-paper">
       <div className="container grid gap-12 py-16 md:grid-cols-4">
         <div className="md:col-span-2">
-          <img
-            src={logoFullSrc}
-            alt="Allianz Bienes Raices"
-            className="mb-5 h-24 w-auto brightness-0 invert"
-          />
+          <div className="mb-5 flex items-center gap-4">
+            <img
+              src={logoMarkSrc}
+              alt="Allianz Bienes Raices"
+              className="h-14 w-auto brightness-0 invert"
+            />
+            <img
+              src={logoWordmarkSrc}
+              alt=""
+              aria-hidden="true"
+              className="h-10 w-auto brightness-0 invert"
+            />
+          </div>
           <p className="max-w-md text-sm text-stone">
             Curaduria de propiedades residenciales y de inversion para clientes que valoran
             arquitectura, ubicacion y valor patrimonial.
