@@ -11,14 +11,12 @@ export function PublicHeader() {
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-stone/70 bg-paper/90 backdrop-blur">
       <div className="container flex h-20 items-center justify-between">
-        <Link to={ROUTES.home} className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center border border-ink bg-ink text-xs font-bold text-paper">
-            A
-          </span>
-          <div>
-            <p className="font-display text-2xl leading-none text-ink">Allianz</p>
-            <p className="text-[10px] uppercase tracking-editorial text-slate">Bienes Raices</p>
-          </div>
+        <Link to={ROUTES.home} className="flex items-center">
+          <img
+            src="/logo-allianz-mark.png"
+            alt="Allianz Bienes Raices"
+            className="h-12 w-auto"
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 lg:flex">

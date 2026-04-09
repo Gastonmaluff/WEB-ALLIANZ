@@ -6,7 +6,11 @@ export function PublicFooter() {
     <footer className="bg-ink text-paper">
       <div className="container grid gap-12 py-16 md:grid-cols-4">
         <div className="md:col-span-2">
-          <p className="mb-4 font-display text-3xl">Allianz Bienes Raices</p>
+          <img
+            src="/logo-allianz.png"
+            alt="Allianz Bienes Raices"
+            className="mb-5 h-24 w-auto brightness-0 invert"
+          />
           <p className="max-w-md text-sm text-stone">
             Curaduria de propiedades residenciales y de inversion para clientes que valoran
             arquitectura, ubicacion y valor patrimonial.
