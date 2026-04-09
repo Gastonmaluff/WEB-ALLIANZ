@@ -1,26 +1,62 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useMemo } from "react";
 import { formatCurrency } from "../../utils/format";
+import { ImageSlider } from "../common/ImageSlider";
 
 export function PropertyCard({ property }) {
+  const navigate = useNavigate();
+  const detailPath = `/propiedades/${property.slug}`;
+  const galleryImages = useMemo(() => {
+    const fromProperty = [property.imagenPrincipal, ...(property.imagenes || [])];
+    return [...new Set(fromProperty.filter(Boolean))];
+  }, [property.imagenPrincipal, property.imagenes]);
+
+  const openDetail = () => navigate(detailPath);
+
   return (
-    <article className="group border-fine bg-paper">
-      <div className="overflow-hidden">
-        <img
-          src={property.imagenPrincipal}
-          alt={property.titulo}
-          className="h-72 w-full object-cover transition duration-700 group-hover:scale-105"
+    <article
+      className="group border-fine bg-paper transition-shadow hover:shadow-editorial cursor-pointer"
+      role="link"
+      tabIndex={0}
+      onClick={openDetail}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openDetail();
+        }
+      }}
+    >
+      <div className="relative">
+        <ImageSlider
+          images={galleryImages}
+          altPrefix={property.titulo}
+          tone="light"
+          autoPlayMs={0}
+          showIndicators={galleryImages.length > 1}
+          showArrows={galleryImages.length > 1}
+          containerClassName="h-72"
+          controlsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          indicatorsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         />
       </div>
 
       <div className="space-y-5 p-5">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-display text-3xl leading-none">{property.titulo}</h3>
-          <p className="text-sm font-semibold tracking-wide text-ink">
+        <div className="grid grid-cols-[1fr_auto] items-start gap-x-7 gap-y-2">
+          <h3 className="pr-4 font-display text-3xl leading-none">
+            <Link
+              to={detailPath}
+              onClick={(event) => event.stopPropagation()}
+              className="hover:underline decoration-1 underline-offset-4"
+            >
+              {property.titulo}
+            </Link>
+          </h3>
+          <p className="min-w-[130px] pt-1 text-right text-sm font-semibold tracking-[0.08em] text-ink">
             {formatCurrency(property.precio, property.moneda)}
           </p>
+          <p className="col-span-2 text-sm text-slate">{property.ubicacion}</p>
         </div>
 
-        <p className="text-sm text-slate">{property.ubicacion}</p>
         <p className="line-clamp-2 text-sm text-slate">{property.descripcionCorta}</p>
 
         <div className="grid grid-cols-3 border-t border-stone pt-4 text-center text-xs uppercase tracking-[0.08em] text-slate">
@@ -39,7 +75,8 @@ export function PropertyCard({ property }) {
         </div>
 
         <Link
-          to={`/propiedades/${property.slug}`}
+          to={detailPath}
+          onClick={(event) => event.stopPropagation()}
           className="inline-flex text-xs font-semibold uppercase tracking-editorial text-ink underline-offset-4 hover:underline"
         >
           Ver detalle

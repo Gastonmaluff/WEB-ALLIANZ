@@ -1,5 +1,12 @@
 import { AppButton } from "../common/AppButton";
 import { ROUTES } from "../../router/paths";
+import { ImageSlider } from "../common/ImageSlider";
+
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1900&q=80",
+  "https://images.unsplash.com/photo-1600210492493-0946911123ea?auto=format&fit=crop&w=1900&q=80",
+  "https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?auto=format&fit=crop&w=1900&q=80",
+];
 
 export function HeroSection() {
   return (
@@ -21,10 +28,15 @@ export function HeroSection() {
           </div>
 
           <div className="lg:col-span-7">
-            <img
-              src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1800&q=80"
-              alt="Casa moderna de lujo"
-              className="h-[520px] w-full object-cover"
+            <ImageSlider
+              images={HERO_IMAGES}
+              altPrefix="Hero Allianz"
+              autoPlayMs={7000}
+              tone="light"
+              showIndicators
+              showArrows
+              containerClassName="h-[520px]"
+              controlsClassName="md:inset-x-4"
             />
           </div>
         </div>

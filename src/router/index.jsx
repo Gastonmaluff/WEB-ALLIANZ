@@ -3,6 +3,7 @@ import { PublicLayout } from "../layouts/PublicLayout";
 import { AdminLayout } from "../layouts/AdminLayout";
 import { HomePage } from "../pages/public/HomePage";
 import { PropertiesPage } from "../pages/public/PropertiesPage";
+import { RentalsPage } from "../pages/public/RentalsPage";
 import { PropertyDetailPage } from "../pages/public/PropertyDetailPage";
 import { ContactPage } from "../pages/public/ContactPage";
 import { NotFoundPage } from "../pages/public/NotFoundPage";
@@ -22,6 +23,7 @@ export const appRouter = createBrowserRouter(
       children: [
         { index: true, element: <HomePage /> },
         { path: "propiedades", element: <PropertiesPage /> },
+        { path: "alquileres", element: <RentalsPage /> },
         { path: "propiedades/:slug", element: <PropertyDetailPage /> },
         { path: "contacto", element: <ContactPage /> },
         { path: "*", element: <NotFoundPage /> },

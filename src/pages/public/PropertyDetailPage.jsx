@@ -1,15 +1,24 @@
 import { Link, useParams } from "react-router-dom";
+import { useMemo } from "react";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { formatCurrency, toTitle } from "../../utils/format";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
+import { ImageSlider } from "../../components/common/ImageSlider";
 
 export function PropertyDetailPage() {
   const { slug } = useParams();
   const property = MOCK_PROPERTIES.find((item) => item.slug === slug);
+  const galleryImages = useMemo(() => {
+    const fromProperty = [property?.imagenPrincipal, ...(property?.imagenes || [])];
+    return [...new Set(fromProperty.filter(Boolean))];
+  }, [property?.imagenPrincipal, property?.imagenes]);
   const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(
     property?.ubicacion || ""
   )}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
+  const whatsappUrl = `https://wa.me/595981000000?text=${encodeURIComponent(
+    `Hola Allianz, me interesa la propiedad ${property?.titulo || ""} (${property?.ubicacion || ""}).`
+  )}`;
 
   if (!property) {
     return (
@@ -32,18 +41,25 @@ export function PropertyDetailPage() {
           <Link to={ROUTES.properties} className="text-xs uppercase tracking-editorial text-slate">
             Volver a propiedades
           </Link>
-          <h1 className="font-display text-6xl leading-none text-ink">{property.titulo}</h1>
-          <p className="text-sm text-slate">{property.ubicacion}</p>
+          <h1 className="font-display text-6xl leading-none text-ink md:text-7xl">{property.titulo}</h1>
+          <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-editorial text-slate">
+            <span className="border border-stone px-3 py-1">{toTitle(property.tipoOperacion)}</span>
+            <span className="border border-stone px-3 py-1">{property.tipoPropiedad}</span>
+            <span>{property.ubicacion}</span>
+          </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <img
-            src={property.imagenPrincipal}
-            alt={property.titulo}
-            className="h-72 w-full border-fine object-cover lg:col-span-2 lg:h-[560px]"
+          <ImageSlider
+            images={galleryImages}
+            altPrefix={`Galeria ${property.titulo}`}
+            tone="light"
+            autoPlayMs={0}
+            showArrows={galleryImages.length > 1}
+            showIndicators={galleryImages.length > 1}
+            containerClassName="h-[420px] border-fine lg:col-span-2 lg:h-[560px]"
           />
           <div className="space-y-4 border-fine bg-paper p-6">
-            <p className="text-xs uppercase tracking-editorial text-slate">{toTitle(property.tipoOperacion)}</p>
             <p className="font-display text-5xl leading-none">
               {formatCurrency(property.precio, property.moneda)}
             </p>
@@ -55,15 +71,25 @@ export function PropertyDetailPage() {
               <p>Cochera: {property.cochera}</p>
               <p className="col-span-2">Estado: {toTitle(property.estado)}</p>
             </div>
-            <AppButton to={ROUTES.contact} className="w-full">
-              Coordinar visita
-            </AppButton>
+            <div className="grid gap-2">
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex w-full items-center justify-center bg-[#041B2C] px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-white transition hover:bg-[#163649]"
+              >
+                WhatsApp
+              </a>
+              <AppButton to={ROUTES.contact} className="w-full" variant="ghost">
+                Coordinar visita
+              </AppButton>
+            </div>
           </div>
         </div>
 
-        {property.imagenes?.length ? (
+        {galleryImages.length > 1 ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {property.imagenes.map((image, index) => (
+            {galleryImages.slice(1).map((image, index) => (
               <img
                 key={`${property.id}-gallery-${index}`}
                 src={image}

@@ -4,6 +4,7 @@ import { ROUTES } from "../../router/paths";
 const navItems = [
   { label: "Inicio", to: ROUTES.home },
   { label: "Propiedades", to: ROUTES.properties },
+  { label: "Alquileres", to: ROUTES.rentals },
   { label: "Contacto", to: ROUTES.contact },
 ];
 
