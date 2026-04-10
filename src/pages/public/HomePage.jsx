@@ -19,7 +19,7 @@ export function HomePage() {
     <>
       <HeroSection />
       <FeaturedPropertiesSection
-        className="pt-8 md:pt-12"
+        className="pt-4 md:pt-6"
         properties={featuredProperties}
         title="Propiedades de portada"
         description="Residencias y departamentos de alto nivel con excelente ubicacion y calidad constructiva."

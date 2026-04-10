@@ -25,8 +25,8 @@ export function TestimonialsSection({ testimonials }) {
   }, [orderedTestimonials.length]);
 
   return (
-    <section className="section-wrap bg-paper">
-      <div className="container space-y-10">
+    <section className="section-wrap-compact bg-paper">
+      <div className="container space-y-8 md:space-y-9">
         <SectionHeading
           eyebrow="Clientes"
           title="Testimonios"

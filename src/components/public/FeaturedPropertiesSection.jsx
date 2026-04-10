@@ -12,8 +12,8 @@ export function FeaturedPropertiesSection({
   className = "",
 }) {
   return (
-    <section className={`section-wrap ${className}`}>
-      <div className="container space-y-10">
+    <section className={`section-wrap-compact ${className}`}>
+      <div className="container space-y-8 md:space-y-9">
         <SectionHeading eyebrow={eyebrow} title={title} description={description} />
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -23,7 +23,7 @@ export function FeaturedPropertiesSection({
         </div>
 
         {ctaTo ? (
-          <div className="pt-1 text-center">
+          <div className="pt-0.5 text-center">
             <AppButton to={ctaTo} variant="ghost">
               {ctaLabel}
             </AppButton>
