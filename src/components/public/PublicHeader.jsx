@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "framer-motion";
+import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ROUTES } from "../../router/paths";
 
 const navItems = [
@@ -10,20 +10,50 @@ const navItems = [
   { label: "Contacto", to: ROUTES.contact },
 ];
 
+const SCROLL_RANGE = 80;
+
 export function PublicHeader() {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const logoAnchorRef = useRef(null);
+  const logoIconRef = useRef(null);
+  const [centerOffset, setCenterOffset] = useState(0);
+  const [interactive, setInteractive] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
   const { scrollY } = useScroll();
   const reduceMotion = useReducedMotion();
   const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
   const logoWordmarkSrc = `${import.meta.env.BASE_URL}logo-allianz-wordmark.png`;
 
+  const logoX = useTransform(scrollY, [0, SCROLL_RANGE], [centerOffset, 0]);
+  const revealOpacity = useTransform(scrollY, [8, SCROLL_RANGE], [0, 1]);
+  const revealY = useTransform(scrollY, [0, SCROLL_RANGE], [8, 0]);
+  const wordmarkOpacity = useTransform(scrollY, [14, SCROLL_RANGE], [0, 1]);
+  const wordmarkX = useTransform(scrollY, [0, SCROLL_RANGE], [-8, 0]);
+
   useEffect(() => {
-    setIsExpanded(window.scrollY > 40);
+    const calculateOffset = () => {
+      if (!logoAnchorRef.current || !logoIconRef.current) return;
+
+      const anchorRect = logoAnchorRef.current.getBoundingClientRect();
+      const iconWidth = logoIconRef.current.offsetWidth || 0;
+      const iconCenterFromLeft = anchorRect.left + iconWidth / 2;
+      const viewportCenter = window.innerWidth / 2;
+      setCenterOffset(viewportCenter - iconCenterFromLeft);
+    };
+
+    calculateOffset();
+    window.addEventListener("resize", calculateOffset);
+    return () => window.removeEventListener("resize", calculateOffset);
   }, []);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
-    setIsExpanded(latest > 40);
+    setInteractive(latest > 28);
+    setHasScrolled(latest > 12);
   });
+
+  useEffect(() => {
+    setInteractive(window.scrollY > 28);
+    setHasScrolled(window.scrollY > 12);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 h-20">
@@ -33,112 +63,113 @@ export function PublicHeader() {
           reduceMotion
             ? {}
             : {
-                boxShadow: isExpanded
-                  ? "0 10px 30px -20px rgba(2, 10, 22, 0.8)"
-                  : "0 0 0 0 rgba(2, 10, 22, 0)",
+                boxShadow:
+                  hasScrolled
+                    ? "0 12px 30px -22px rgba(2, 10, 22, 0.9)"
+                    : "0 0 0 0 rgba(2, 10, 22, 0)",
               }
         }
         transition={{ duration: 0.35, ease: "easeOut" }}
       />
 
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        animate={
-          reduceMotion
-            ? { opacity: isExpanded ? 0 : 1 }
-            : { opacity: isExpanded ? 0 : 1, y: isExpanded ? -10 : 0, scale: isExpanded ? 0.92 : 1 }
-        }
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        style={{ pointerEvents: isExpanded ? "none" : "auto" }}
-      >
-        <Link to={ROUTES.home} className="inline-flex">
-          <img src={logoMarkSrc} alt="Allianz Bienes Raices" className="h-12 w-auto" />
-        </Link>
-      </motion.div>
+      <div className="container relative h-20">
+        <div ref={logoAnchorRef} className="absolute left-0 top-1/2 -translate-y-1/2">
+          <motion.div className="relative flex items-center" style={reduceMotion ? {} : { x: logoX }}>
+            <Link to={ROUTES.home} aria-label="Ir al inicio" className="inline-flex">
+              <img
+                ref={logoIconRef}
+                src={logoMarkSrc}
+                alt="Allianz Bienes Raices"
+                className="h-11 w-auto sm:h-12"
+              />
+            </Link>
 
-      <motion.div
-        className="absolute inset-0"
-        animate={
-          reduceMotion
-            ? { opacity: isExpanded ? 1 : 0 }
-            : { opacity: isExpanded ? 1 : 0, y: isExpanded ? 0 : 8 }
-        }
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        style={{ pointerEvents: isExpanded ? "auto" : "none" }}
-      >
-        <div className="container flex h-20 items-center justify-between">
-          <Link to={ROUTES.home} className="flex items-center gap-3">
-            <img src={logoMarkSrc} alt="Allianz Bienes Raices" className="h-11 w-auto sm:h-12" />
-            <img
+            <motion.img
               src={logoWordmarkSrc}
               alt=""
               aria-hidden="true"
-              className="hidden h-6 w-auto brightness-0 invert sm:block sm:h-7"
+              className="ml-3 hidden h-6 w-auto brightness-0 invert sm:block sm:h-7"
+              style={reduceMotion ? {} : { opacity: wordmarkOpacity, x: wordmarkX }}
             />
-          </Link>
-
-          <nav className="hidden items-center gap-8 lg:flex">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  `text-sm transition-colors ${
-                    isActive ? "text-white" : "text-white/70 hover:text-white"
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <a
-              href="https://wa.me/595981000000"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Contactar por WhatsApp"
-              className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white md:hidden"
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-                <path
-                  d="M12 4a7 7 0 0 0-6.176 10.3L5 20l5.835-.806A7 7 0 1 0 12 4Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M9.5 10.5c.5 1.5 1.5 2.5 3 3"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </a>
-            <a
-              href="https://wa.me/595981000000"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden border border-white/30 px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-white transition hover:border-white md:inline-flex"
-            >
-              WhatsApp
-            </a>
-            <Link
-              to={ROUTES.adminLogin}
-              aria-label="Ingresar al panel admin"
-              className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white"
-            >
-              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-                <path
-                  d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            </Link>
-          </div>
+          </motion.div>
         </div>
-      </motion.div>
+
+        <motion.nav
+          className="absolute inset-y-0 left-1/2 hidden -translate-x-1/2 items-center gap-8 lg:flex"
+          style={reduceMotion ? {} : { opacity: revealOpacity, y: revealY }}
+        >
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `text-sm transition-colors ${
+                  isActive ? "text-white" : "text-white/70 hover:text-white"
+                }`
+              }
+              style={{ pointerEvents: interactive ? "auto" : "none" }}
+              tabIndex={interactive ? 0 : -1}
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </motion.nav>
+
+        <motion.div
+          className="absolute inset-y-0 right-0 flex items-center gap-3"
+          style={reduceMotion ? {} : { opacity: revealOpacity, y: revealY }}
+        >
+          <a
+            href="https://wa.me/595981000000"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Contactar por WhatsApp"
+            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white md:hidden"
+            style={{ pointerEvents: interactive ? "auto" : "none" }}
+            tabIndex={interactive ? 0 : -1}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path
+                d="M12 4a7 7 0 0 0-6.176 10.3L5 20l5.835-.806A7 7 0 1 0 12 4Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+              <path
+                d="M9.5 10.5c.5 1.5 1.5 2.5 3 3"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </a>
+          <a
+            href="https://wa.me/595981000000"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden border border-white/30 px-4 py-2 text-xs font-medium uppercase tracking-[0.12em] text-white transition hover:border-white md:inline-flex"
+            style={{ pointerEvents: interactive ? "auto" : "none" }}
+            tabIndex={interactive ? 0 : -1}
+          >
+            WhatsApp
+          </a>
+
+          <Link
+            to={ROUTES.adminLogin}
+            aria-label="Ingresar al panel admin"
+            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white"
+            style={{ pointerEvents: interactive ? "auto" : "none" }}
+            tabIndex={interactive ? 0 : -1}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              <path
+                d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-4.418 0-8 2.239-8 5v1h16v-1c0-2.761-3.582-5-8-5Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              />
+            </svg>
+          </Link>
+        </motion.div>
+      </div>
     </header>
   );
 }
