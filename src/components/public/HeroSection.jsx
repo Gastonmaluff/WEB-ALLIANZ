@@ -10,17 +10,17 @@ const HERO_IMAGES = [
 
 export function HeroSection() {
   return (
-    <section className="section-wrap pt-32">
+    <section className="section-wrap pt-10 md:pt-14">
       <div className="container">
         <div className="relative grid overflow-hidden border-fine bg-paper lg:grid-cols-12">
-          <div className="relative z-10 bg-hero-fade p-10 lg:col-span-5 lg:p-14">
+          <div className="relative z-10 bg-paper p-7 sm:p-9 lg:col-span-5 lg:bg-hero-fade lg:p-14">
             <p className="mb-4 text-[11px] font-semibold uppercase tracking-editorial text-slate">
               Portfolio 2026
             </p>
-            <h1 className="mb-5 text-5xl leading-[0.95] text-ink md:text-7xl">
+            <h1 className="mb-5 text-5xl leading-[0.95] text-ink md:text-6xl lg:text-7xl">
               Arquitectura de lujo para vivir e invertir.
             </h1>
-            <p className="mb-8 max-w-md text-sm leading-relaxed text-slate md:text-base">
+            <p className="mb-8 max-w-md text-base leading-relaxed text-slate">
               Seleccion premium de propiedades en venta y alquiler con enfoque editorial y
               asesoramiento integral.
             </p>
@@ -35,8 +35,9 @@ export function HeroSection() {
               tone="light"
               showIndicators
               showArrows
-              containerClassName="h-[520px]"
+              containerClassName="h-[320px] sm:h-[390px] lg:h-[620px]"
               controlsClassName="md:inset-x-4"
+              indicatorsClassName="pb-1 lg:pb-2"
             />
           </div>
         </div>
