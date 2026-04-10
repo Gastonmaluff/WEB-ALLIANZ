@@ -43,8 +43,8 @@ export function AdminDashboardPage() {
   return (
     <section className="space-y-7">
       <header className="space-y-2">
-        <p className="text-xs uppercase tracking-editorial text-slate">Resumen general</p>
-        <h1 className="font-display text-5xl leading-none text-ink">Dashboard</h1>
+        <p className="text-xs uppercase tracking-editorial text-slate">Panel privado</p>
+        <h1 className="font-display text-5xl leading-none text-ink">Resumen general</h1>
         <p className="max-w-2xl text-sm text-slate">
           Vista general de la actividad del catalogo y accesos rapidos para gestion operativa.
         </p>
