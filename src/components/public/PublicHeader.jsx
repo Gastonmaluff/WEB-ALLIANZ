@@ -106,9 +106,40 @@ export function PublicHeader() {
               src={logoWordmarkSrc}
               alt=""
               aria-hidden="true"
-              className="ml-2 h-4 w-[118px] object-contain brightness-0 invert sm:ml-3 sm:h-7 sm:w-[178px]"
+              className="ml-2 h-5 w-[148px] object-contain brightness-0 invert sm:ml-3 sm:h-7 sm:w-[178px]"
               style={reduceMotion ? {} : { opacity: wordmarkOpacity, x: wordmarkX }}
             />
+
+            <motion.button
+              type="button"
+              aria-label="Abrir menu"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="ml-2 inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white lg:hidden"
+              style={
+                reduceMotion
+                  ? { opacity: interactive ? 1 : 0, pointerEvents: interactive ? "auto" : "none" }
+                  : { opacity: revealOpacity, y: revealY, pointerEvents: interactive ? "auto" : "none" }
+              }
+              tabIndex={interactive ? 0 : -1}
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+                {mobileMenuOpen ? (
+                  <path
+                    d="M6 6l12 12M18 6l-12 12"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                ) : (
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                )}
+              </svg>
+            </motion.button>
           </motion.div>
         </div>
 
@@ -142,23 +173,11 @@ export function PublicHeader() {
             target="_blank"
             rel="noreferrer"
             aria-label="Contactar por WhatsApp"
-            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white md:hidden"
+            className="inline-flex border border-white/30 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] text-white transition hover:border-white md:hidden"
             style={{ pointerEvents: interactive ? "auto" : "none" }}
             tabIndex={interactive ? 0 : -1}
           >
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-              <path
-                d="M12 4a7 7 0 0 0-6.176 10.3L5 20l5.835-.806A7 7 0 1 0 12 4Z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <path
-                d="M9.5 10.5c.5 1.5 1.5 2.5 3 3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
+            WhatsApp
           </a>
           <a
             href="https://wa.me/595981000000"
@@ -186,33 +205,6 @@ export function PublicHeader() {
               />
             </svg>
           </Link>
-
-          <button
-            type="button"
-            aria-label="Abrir menu"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white lg:hidden"
-            style={{ pointerEvents: interactive ? "auto" : "none" }}
-            tabIndex={interactive ? 0 : -1}
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-              {mobileMenuOpen ? (
-                <path
-                  d="M6 6l12 12M18 6l-12 12"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              ) : (
-                <path
-                  d="M4 7h16M4 12h16M4 17h16"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                />
-              )}
-            </svg>
-          </button>
         </motion.div>
       </div>
 
