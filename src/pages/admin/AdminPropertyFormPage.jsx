@@ -4,6 +4,7 @@ import { AppButton } from "../../components/common/AppButton";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { ROUTES } from "../../router/paths";
+import { formatOperationLabel } from "../../utils/format";
 
 const propertyTypes = ["Casa", "Departamento", "Terreno", "Oficina"];
 const currencies = ["USD", "PYG"];
@@ -252,7 +253,7 @@ export function AdminPropertyFormPage() {
                 <option value="">Selecciona una opcion</option>
                 {OPERATION_TYPES.map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {formatOperationLabel(item)}
                   </option>
                 ))}
               </select>

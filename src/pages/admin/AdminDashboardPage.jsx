@@ -38,7 +38,9 @@ export function AdminDashboardPage() {
   const total = MOCK_PROPERTIES.length;
   const available = MOCK_PROPERTIES.filter((item) => item.estado === "disponible").length;
   const featured = MOCK_PROPERTIES.filter((item) => item.destacadaEnPortada).length;
-  const rents = MOCK_PROPERTIES.filter((item) => item.tipoOperacion === "alquiler").length;
+  const rents = MOCK_PROPERTIES.filter((item) =>
+    ["alquiler", "venta_o_alquiler"].includes(item.tipoOperacion)
+  ).length;
 
   return (
     <section className="space-y-7">

@@ -1,7 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { useMemo } from "react";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
-import { formatCurrency, toTitle } from "../../utils/format";
+import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { ImageSlider } from "../../components/common/ImageSlider";
@@ -43,7 +43,7 @@ export function PropertyDetailPage() {
           </Link>
           <h1 className="font-display text-6xl leading-none text-ink md:text-7xl">{property.titulo}</h1>
           <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-editorial text-slate">
-            <span className="border border-stone px-3 py-1">{toTitle(property.tipoOperacion)}</span>
+            <span className="border border-stone px-3 py-1">{formatOperationLabel(property.tipoOperacion)}</span>
             <span className="border border-stone px-3 py-1">{property.tipoPropiedad}</span>
             <span>{property.ubicacion}</span>
           </div>

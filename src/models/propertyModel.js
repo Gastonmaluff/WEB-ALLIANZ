@@ -1,5 +1,5 @@
 export const PROPERTY_STATUS = ["disponible", "vendido", "alquilado", "reservado"];
-export const OPERATION_TYPES = ["venta", "alquiler"];
+export const OPERATION_TYPES = ["venta", "alquiler", "venta_o_alquiler"];
 
 export const emptyProperty = {
   titulo: "",

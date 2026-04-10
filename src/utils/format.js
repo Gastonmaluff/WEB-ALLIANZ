@@ -10,3 +10,11 @@ export function toTitle(value) {
   if (!value) return "";
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+export function formatOperationLabel(value) {
+  if (!value) return "";
+  if (value === "venta_o_alquiler") return "Venta o alquiler";
+  if (value === "venta") return "Venta";
+  if (value === "alquiler") return "Alquiler";
+  return toTitle(value.replaceAll("_", " "));
+}

@@ -10,7 +10,7 @@ const HERO_IMAGES = [
 
 export function HeroSection() {
   return (
-    <section className="section-wrap pt-10 md:pt-14">
+    <section className="pt-10 pb-6 md:pt-14 md:pb-10">
       <div className="container">
         <div className="relative grid overflow-hidden border-fine bg-paper lg:grid-cols-12">
           <div className="relative z-10 bg-paper p-7 sm:p-9 lg:col-span-5 lg:bg-hero-fade lg:p-14">

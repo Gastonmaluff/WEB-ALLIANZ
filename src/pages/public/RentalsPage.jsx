@@ -2,8 +2,12 @@ import { SectionHeading } from "../../components/common/SectionHeading";
 import { PropertyCard } from "../../components/public/PropertyCard";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 
+function isRentOperation(value) {
+  return value === "alquiler" || value === "venta_o_alquiler";
+}
+
 export function RentalsPage() {
-  const rentalProperties = MOCK_PROPERTIES.filter((property) => property.tipoOperacion === "alquiler");
+  const rentalProperties = MOCK_PROPERTIES.filter((property) => isRentOperation(property.tipoOperacion));
 
   return (
     <section className="section-wrap pt-32">

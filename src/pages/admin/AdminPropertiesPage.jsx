@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
-import { formatCurrency, toTitle } from "../../utils/format";
+import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
 
 export function AdminPropertiesPage() {
   return (
@@ -49,7 +49,7 @@ export function AdminPropertiesPage() {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-4 capitalize">{property.tipoOperacion}</td>
+                <td className="px-4 py-4">{formatOperationLabel(property.tipoOperacion)}</td>
                 <td className="px-4 py-4">{formatCurrency(property.precio, property.moneda)}</td>
                 <td className="px-4 py-4 capitalize">{property.estado}</td>
                 <td className="px-4 py-4">{property.destacadaEnPortada ? "Si" : "No"}</td>
@@ -82,7 +82,7 @@ export function AdminPropertiesPage() {
                 <p className="font-semibold text-ink">{property.titulo}</p>
                 <p className="truncate text-xs text-slate">{property.ubicacion}</p>
                 <p className="mt-2 text-xs uppercase tracking-editorial text-slate">
-                  {toTitle(property.tipoOperacion)} · {toTitle(property.estado)}
+                  {formatOperationLabel(property.tipoOperacion)} · {toTitle(property.estado)}
                 </p>
                 <p className="mt-2 text-sm font-semibold text-ink">
                   {formatCurrency(property.precio, property.moneda)}
