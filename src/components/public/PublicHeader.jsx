@@ -11,6 +11,7 @@ const navItems = [
 ];
 
 const SCROLL_RANGE = 80;
+const FINAL_LOGO_OFFSET = 10;
 
 export function PublicHeader() {
   const logoAnchorRef = useRef(null);
@@ -23,7 +24,7 @@ export function PublicHeader() {
   const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
   const logoWordmarkSrc = `${import.meta.env.BASE_URL}logo-allianz-wordmark.png`;
 
-  const logoX = useTransform(scrollY, [0, SCROLL_RANGE], [centerOffset, 0]);
+  const logoX = useTransform(scrollY, [0, SCROLL_RANGE], [centerOffset, FINAL_LOGO_OFFSET]);
   const revealOpacity = useTransform(scrollY, [8, SCROLL_RANGE], [0, 1]);
   const revealY = useTransform(scrollY, [0, SCROLL_RANGE], [8, 0]);
   const wordmarkOpacity = useTransform(scrollY, [14, SCROLL_RANGE], [0, 1]);
@@ -72,8 +73,8 @@ export function PublicHeader() {
         transition={{ duration: 0.35, ease: "easeOut" }}
       />
 
-      <div className="container relative h-20">
-        <div ref={logoAnchorRef} className="absolute left-0 top-1/2 -translate-y-1/2">
+      <div className="relative mx-auto h-20 w-full max-w-[1360px] px-4 md:px-8 xl:px-10">
+        <div ref={logoAnchorRef} className="absolute left-2 top-1/2 -translate-y-1/2 md:left-4">
           <motion.div className="relative flex items-center" style={reduceMotion ? {} : { x: logoX }}>
             <Link to={ROUTES.home} aria-label="Ir al inicio" className="inline-flex">
               <img
@@ -116,7 +117,7 @@ export function PublicHeader() {
         </motion.nav>
 
         <motion.div
-          className="absolute inset-y-0 right-0 flex items-center gap-3"
+          className="absolute inset-y-0 right-2 flex items-center gap-3 md:right-4"
           style={reduceMotion ? {} : { opacity: revealOpacity, y: revealY }}
         >
           <a
