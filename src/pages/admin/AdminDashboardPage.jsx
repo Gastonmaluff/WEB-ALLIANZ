@@ -50,7 +50,7 @@ export function AdminDashboardPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <MetricCard title="Total propiedades" value={total} icon={iconBuilding} hint="Stock general cargado en sistema" />
         <MetricCard title="Disponibles" value={available} icon={iconCheck} accent="ink" hint="Publicables en el sitio" />
         <MetricCard title="En portada" value={featured} icon={iconStar} hint="Destacadas en home publica" />
