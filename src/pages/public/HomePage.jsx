@@ -1,5 +1,6 @@
 import { HeroSection } from "../../components/public/HeroSection";
 import { FeaturedPropertiesSection } from "../../components/public/FeaturedPropertiesSection";
+import { PremiumZoneSection } from "../../components/public/PremiumZoneSection";
 import { TestimonialsSection } from "../../components/public/TestimonialsSection";
 import { ContactSection } from "../../components/public/ContactSection";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
@@ -26,6 +27,7 @@ export function HomePage() {
         ctaTo={ROUTES.properties}
         ctaLabel="Ver mas"
       />
+      <PremiumZoneSection />
       <FeaturedPropertiesSection
         properties={lotsProperties}
         eyebrow="Desarrollos"
