@@ -29,6 +29,6 @@
   }
 
   .admin-card {
-    @apply rounded-none border-fine bg-paper p-6 shadow-sm;
+    @apply border-fine bg-paper p-6 shadow-[0_20px_45px_-36px_rgba(14,23,40,0.55)];
   }
 }

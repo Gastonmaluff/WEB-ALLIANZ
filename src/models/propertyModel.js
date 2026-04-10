@@ -20,5 +20,6 @@ export const emptyProperty = {
   imagenPrincipal: "",
   imagenes: [],
   destacadaEnPortada: false,
+  publicada: true,
   createdAt: new Date().toISOString(),
 };
