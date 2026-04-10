@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
-import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
 import { ROUTES } from "../../router/paths";
 
 const navItems = [
@@ -16,9 +23,11 @@ const FINAL_LOGO_OFFSET = 10;
 export function PublicHeader() {
   const logoAnchorRef = useRef(null);
   const logoIconRef = useRef(null);
+  const location = useLocation();
   const [centerOffset, setCenterOffset] = useState(0);
   const [interactive, setInteractive] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { scrollY } = useScroll();
   const reduceMotion = useReducedMotion();
   const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
@@ -56,6 +65,14 @@ export function PublicHeader() {
     setHasScrolled(window.scrollY > 12);
   }, []);
 
+  useEffect(() => {
+    if (!interactive) setMobileMenuOpen(false);
+  }, [interactive]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
   return (
     <header className="sticky top-0 z-50 h-20">
       <motion.div
@@ -89,7 +106,7 @@ export function PublicHeader() {
               src={logoWordmarkSrc}
               alt=""
               aria-hidden="true"
-              className="ml-3 hidden h-6 w-auto brightness-0 invert sm:block sm:h-7"
+              className="ml-2 h-4 w-[118px] object-contain brightness-0 invert sm:ml-3 sm:h-7 sm:w-[178px]"
               style={reduceMotion ? {} : { opacity: wordmarkOpacity, x: wordmarkX }}
             />
           </motion.div>
@@ -169,8 +186,66 @@ export function PublicHeader() {
               />
             </svg>
           </Link>
+
+          <button
+            type="button"
+            aria-label="Abrir menu"
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            className="inline-flex h-9 w-9 items-center justify-center border border-white/30 text-white/90 transition hover:border-white lg:hidden"
+            style={{ pointerEvents: interactive ? "auto" : "none" }}
+            tabIndex={interactive ? 0 : -1}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+              {mobileMenuOpen ? (
+                <path
+                  d="M6 6l12 12M18 6l-12 12"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              ) : (
+                <path
+                  d="M4 7h16M4 12h16M4 17h16"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                />
+              )}
+            </svg>
+          </button>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {mobileMenuOpen ? (
+          <motion.div
+            key="mobile-menu"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-x-0 top-full border-b border-[#163649]/80 bg-[#041B2C]/98 lg:hidden"
+          >
+            <div className="mx-auto w-full max-w-[1360px] px-4 pb-4 md:px-8 xl:px-10">
+              <nav className="grid gap-1 border border-white/15 bg-[#0A2539] p-2">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={`mobile-${item.to}`}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `px-3 py-3 text-sm transition-colors ${
+                        isActive ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/5 hover:text-white"
+                      }`
+                    }
+                  >
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </header>
   );
 }
