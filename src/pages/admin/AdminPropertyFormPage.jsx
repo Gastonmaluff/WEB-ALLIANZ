@@ -405,7 +405,7 @@ export function AdminPropertyFormPage() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Ubicacion visible" name="ubicacion" required error={errors.ubicacion}>
+            <Field label="Ciudad" name="ubicacion" required error={errors.ubicacion}>
               <input
                 id="ubicacion"
                 name="ubicacion"
