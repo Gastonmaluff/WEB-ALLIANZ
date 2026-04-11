@@ -1,3 +1,4 @@
+import { LayoutGroup, motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
 import { ROUTES } from "../../router/paths";
 
@@ -7,7 +8,11 @@ export const adminNavLinks = [
     label: "Resumen general",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-        <path d="M4 5h7v6H4V5Zm9 0h7v4h-7V5ZM4 13h7v6H4v-6Zm9-2h7v8h-7v-8Z" stroke="currentColor" strokeWidth="1.4" />
+        <path
+          d="M4 5h7v6H4V5Zm9 0h7v4h-7V5ZM4 13h7v6H4v-6Zm9-2h7v8h-7v-8Z"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        />
       </svg>
     ),
   },
@@ -16,7 +21,12 @@ export const adminNavLinks = [
     label: "Portada",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-        <path d="M4 7h16M4 17h10M4 12h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path
+          d="M4 7h16M4 17h10M4 12h16"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -25,7 +35,12 @@ export const adminNavLinks = [
     label: "Propiedades",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-        <path d="M4 20V9l8-5 8 5v11M9 20v-5h6v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <path
+          d="M4 20V9l8-5 8 5v11M9 20v-5h6v5"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </svg>
     ),
   },
@@ -61,26 +76,65 @@ export function AdminSidebar({ onNavigate, compact = false }) {
 
         <nav className="flex-1 space-y-2 px-3 py-4">
           <p className="px-3 text-[11px] uppercase tracking-editorial text-white/45">Navegacion</p>
-          {adminNavLinks.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === ROUTES.adminDashboard}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                `group flex items-center gap-3 rounded-sm border px-3 py-3 text-sm transition ${
-                  isActive
-                    ? "border-white/20 bg-white/14 text-white shadow-[0_14px_30px_-22px_rgba(0,0,0,0.75)]"
-                    : "border-transparent text-white/70 hover:border-white/10 hover:bg-white/8 hover:text-white"
-                }`
-              }
-            >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-white/15 bg-white/[0.03] text-white/75 group-hover:text-white">
-                {item.icon}
-              </span>
-              {item.label}
-            </NavLink>
-          ))}
+          <LayoutGroup id="admin-sidebar-nav">
+            {adminNavLinks.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === ROUTES.adminDashboard}
+                onClick={onNavigate}
+                className={({ isActive }) =>
+                  `group relative flex items-center gap-3 overflow-hidden rounded-sm border px-3 py-3 text-sm transition-all duration-300 ${
+                    isActive
+                      ? "border-white/25 text-white shadow-[0_14px_30px_-22px_rgba(0,0,0,0.75)]"
+                      : "border-transparent text-white/72 hover:translate-x-0.5 hover:border-white/12 hover:text-white"
+                  }`
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive ? (
+                      <motion.span
+                        layoutId="admin-sidebar-active-pill"
+                        className="absolute inset-0 rounded-sm border border-white/16 bg-[linear-gradient(90deg,rgba(255,255,255,0.16)_0%,rgba(255,255,255,0.08)_100%)]"
+                        transition={{ type: "spring", stiffness: 360, damping: 30, mass: 0.5 }}
+                      />
+                    ) : null}
+
+                    <span
+                      className={`relative z-10 inline-flex h-7 w-7 items-center justify-center rounded-sm border bg-white/[0.03] transition-all duration-300 ${
+                        isActive
+                          ? "border-white/26 text-white"
+                          : "border-white/15 text-white/78 group-hover:-translate-y-[1px] group-hover:scale-[1.03] group-hover:border-white/24 group-hover:text-white"
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+
+                    <span
+                      className={`relative z-10 transition-all duration-300 ${
+                        isActive ? "text-white" : "text-white/80 group-hover:translate-x-0.5 group-hover:text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+
+                    <span
+                      className={`relative z-10 ml-auto transition-all duration-300 ${
+                        isActive
+                          ? "translate-x-0 opacity-100"
+                          : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-75"
+                      }`}
+                    >
+                      <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                        <path d="M7 4.5 12.5 10 7 15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </LayoutGroup>
         </nav>
 
         <div className="border-t border-white/10 px-5 py-4">
