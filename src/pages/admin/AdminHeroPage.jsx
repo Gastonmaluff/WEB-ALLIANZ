@@ -14,7 +14,7 @@ function uniqueImages(images) {
 function validateHeroForm(form) {
   const errors = {};
   if (!form.eyebrow.trim()) errors.eyebrow = "Ingresa un texto corto superior.";
-  if (!form.title.trim()) errors.title = "Ingresa el titulo principal del Hero.";
+  if (!form.title.trim()) errors.title = "Ingresa el titulo principal de la portada.";
   if (!form.description.trim()) errors.description = "Ingresa la descripcion principal.";
   if (!form.ctaLabel.trim()) errors.ctaLabel = "Ingresa texto para el boton.";
   if (!form.ctaTo.trim()) errors.ctaTo = "Ingresa una ruta o URL para el boton.";
@@ -81,7 +81,7 @@ export function AdminHeroPage() {
       images: uniqueImages(form.images),
     });
     setForm(saved);
-    setFeedback("Hero actualizado correctamente.");
+    setFeedback("Portada actualizada correctamente.");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -89,7 +89,7 @@ export function AdminHeroPage() {
     const defaults = resetHeroContent();
     setForm(defaults);
     setErrors({});
-    setFeedback("Hero restaurado a valores por defecto.");
+    setFeedback("Portada restaurada a valores por defecto.");
   };
 
   return (
@@ -97,7 +97,7 @@ export function AdminHeroPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-editorial text-slate">Contenido principal</p>
-          <h1 className="font-display text-5xl leading-none text-ink">Hero de Home</h1>
+          <h1 className="font-display text-5xl leading-none text-ink">Portada</h1>
           <p className="mt-2 text-sm text-slate">
             Edita textos y slider de imagenes de la portada publica.
           </p>
@@ -188,7 +188,7 @@ export function AdminHeroPage() {
         <section className="admin-card space-y-4">
           <h2 className="font-display text-3xl leading-none text-ink">Imagenes del slider</h2>
           <p className="text-sm text-slate">
-            Puedes agregar, quitar y reordenar imagenes para el Hero principal.
+            Puedes agregar, quitar y reordenar imagenes para la portada principal.
           </p>
 
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -208,7 +208,7 @@ export function AdminHeroPage() {
           <div className="grid gap-3 md:grid-cols-2">
             {previewImages.map((image, index) => (
               <article key={`${image}-${index}`} className="border border-stone bg-surface p-3">
-                <img src={image} alt={`Hero ${index + 1}`} className="h-28 w-full border border-stone object-cover" />
+                <img src={image} alt={`Portada ${index + 1}`} className="h-28 w-full border border-stone object-cover" />
                 <p className="mt-2 break-all text-[11px] text-slate">{image}</p>
                 <div className="mt-3 flex flex-wrap gap-3 text-xs uppercase tracking-editorial">
                   <button type="button" onClick={() => moveImage(index, -1)} className="text-slate hover:underline">
@@ -228,7 +228,7 @@ export function AdminHeroPage() {
         </section>
 
         <div className="flex flex-wrap gap-3">
-          <AppButton type="submit">Guardar Hero</AppButton>
+          <AppButton type="submit">Guardar portada</AppButton>
           <AppButton type="button" variant="ghost" onClick={onReset}>
             Restaurar por defecto
           </AppButton>
@@ -237,4 +237,3 @@ export function AdminHeroPage() {
     </section>
   );
 }
-

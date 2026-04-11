@@ -89,7 +89,7 @@ export function AdminDashboardPage() {
               className="border border-stone bg-surface p-4 text-sm transition hover:border-ink"
             >
               <p className="text-xs uppercase tracking-editorial text-slate">Portada</p>
-              <p className="mt-2 font-semibold text-ink">Editar Hero de Home</p>
+              <p className="mt-2 font-semibold text-ink">Editar portada</p>
             </Link>
             <Link
               to={ROUTES.properties}
