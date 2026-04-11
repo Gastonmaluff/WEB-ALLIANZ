@@ -2,23 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { useAuthSession } from "../../hooks/useAuthSession";
 import { ROUTES } from "../../router/paths";
 
-const pageMap = [
-  { key: "/admin/propiedades/nueva", label: "Nueva Propiedad" },
-  { key: "/admin/propiedades/", label: "Editar Propiedad" },
-  { key: "/admin/hero", label: "Hero Home" },
-  { key: "/admin/propiedades", label: "Propiedades" },
-  { key: "/admin/testimonios", label: "Testimonios" },
-  { key: "/admin", label: "Dashboard" },
-];
-
-function resolveTitle(pathname) {
-  return pageMap.find((item) => pathname.startsWith(item.key))?.label || "Panel Admin";
-}
-
-export function AdminTopbar({ pathname, onToggleSidebar }) {
+export function AdminTopbar({ onToggleSidebar }) {
   const navigate = useNavigate();
   const { user, logoutMock } = useAuthSession();
-  const pageTitle = resolveTitle(pathname);
   const logoMarkSrc = `${import.meta.env.BASE_URL}logo-allianz-mark.png`;
 
   const handleLogout = () => {
@@ -52,9 +38,8 @@ export function AdminTopbar({ pathname, onToggleSidebar }) {
             className="h-9 w-auto opacity-35 grayscale md:hidden"
           />
 
-          <div className="hidden md:block">
-            <p className="text-[11px] uppercase tracking-editorial text-slate">Panel privado</p>
-            <h1 className="text-lg font-semibold text-ink md:text-xl">{pageTitle}</h1>
+          <div className="hidden min-w-[136px] items-center justify-center md:flex">
+            <img src={logoMarkSrc} alt="Allianz" className="h-10 w-auto opacity-45 grayscale" />
           </div>
         </div>
 
