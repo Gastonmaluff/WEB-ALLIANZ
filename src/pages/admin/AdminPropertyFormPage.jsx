@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { AppButton } from "../../components/common/AppButton";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
@@ -51,10 +52,10 @@ function normalizeProperty(foundProperty) {
 
 function FormSection({ title, description, children }) {
   return (
-    <section className="admin-card space-y-4">
+    <section className="admin-card space-y-3">
       <div>
         <h2 className="font-display text-3xl leading-none text-ink">{title}</h2>
-        {description ? <p className="mt-2 text-sm text-slate">{description}</p> : null}
+        {description ? <p className="mt-1.5 text-sm text-slate">{description}</p> : null}
       </div>
       {children}
     </section>
@@ -109,9 +110,11 @@ export function AdminPropertyFormPage() {
   const [galleryInput, setGalleryInput] = useState("");
   const [extraLabelInput, setExtraLabelInput] = useState("");
   const [extraValueInput, setExtraValueInput] = useState("");
+  const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [saveFeedback, setSaveFeedback] = useState("");
   const generatedSlug = useMemo(() => slugify(form.titulo), [form.titulo]);
+  const extraFeaturesCount = (form.caracteristicasExtras || []).length;
 
   const allGallery = useMemo(
     () => uniqueImages([form.imagenPrincipal, ...form.imagenes]),
@@ -290,19 +293,6 @@ export function AdminPropertyFormPage() {
               />
             </Field>
 
-            <Field
-              label="Slug generado automaticamente"
-              name="slugPreview"
-              help="Se genera en base al titulo para evitar errores."
-            >
-              <input
-                id="slugPreview"
-                value={generatedSlug || "se-generara-cuando-escribas-el-titulo"}
-                readOnly
-                className="w-full border border-stone bg-[#EEF1F3] px-4 py-3 text-sm text-slate outline-none"
-              />
-            </Field>
-
             <Field label="Tipo de operacion" name="tipoOperacion" required error={errors.tipoOperacion}>
               <select
                 id="tipoOperacion"
@@ -360,29 +350,13 @@ export function AdminPropertyFormPage() {
           title="B. Precio y ubicacion"
           description="Completa datos financieros y de localizacion para publicacion."
         >
-          <label className="flex items-start gap-3 border border-stone bg-surface p-4">
-            <input
-              type="checkbox"
-              name="consultarPrecio"
-              checked={Boolean(form.consultarPrecio)}
-              onChange={handleChange}
-              className="mt-0.5 h-4 w-4 accent-[#041B2C]"
-            />
-            <span>
-              <span className="block text-sm font-medium text-ink">Mostrar "Consultar precio"</span>
-              <span className="block text-xs text-slate">
-                Si activas esta opcion, en el sitio publico no se mostrara el precio y aparecera un boton que abre WhatsApp.
-              </span>
-            </span>
-          </label>
-
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_230px_auto] md:items-end">
             <Field
               label="Precio"
               name="precio"
               required={!form.consultarPrecio}
               error={errors.precio}
-              help={form.consultarPrecio ? "El precio queda oculto en la web publica." : undefined}
+              help={form.consultarPrecio ? "Oculto en sitio publico." : undefined}
             >
               <input
                 id="precio"
@@ -415,6 +389,22 @@ export function AdminPropertyFormPage() {
               </select>
             </Field>
 
+            <label
+              title="Si activas esta opcion, en el sitio publico se muestra un boton de WhatsApp en lugar del precio."
+              className="mb-1 inline-flex h-[46px] items-center gap-2 border border-stone bg-surface px-3 text-xs uppercase tracking-editorial text-ink"
+            >
+              <input
+                type="checkbox"
+                name="consultarPrecio"
+                checked={Boolean(form.consultarPrecio)}
+                onChange={handleChange}
+                className="h-4 w-4 accent-[#041B2C]"
+              />
+              Consultar precio
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Ubicacion visible" name="ubicacion" required error={errors.ubicacion}>
               <input
                 id="ubicacion"
@@ -493,57 +483,84 @@ export function AdminPropertyFormPage() {
             </Field>
           </div>
 
-          <div className="space-y-3 border-t border-stone pt-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-editorial text-slate">
-                Caracteristicas personalizadas
-              </p>
-              <p className="text-xs text-slate">
-                Agrega campos extra como "Parrillas", "Piscinas", "Quincho", etc.
-              </p>
-            </div>
+          <div className="border-t border-stone pt-3">
+            <button
+              type="button"
+              onClick={() => setIsExtraOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-sm border border-stone bg-surface px-4 py-3 text-left"
+            >
+              <span className="text-xs font-semibold uppercase tracking-editorial text-slate">
+                Caracteristicas adicionales ({extraFeaturesCount})
+              </span>
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                className={`h-4 w-4 text-slate transition-transform duration-300 ${
+                  isExtraOpen ? "rotate-180" : ""
+                }`}
+              >
+                <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
 
-            <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-              <input
-                value={extraLabelInput}
-                onChange={(event) => setExtraLabelInput(event.target.value)}
-                placeholder="Nombre (ej: Parrillas)"
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-              />
-              <input
-                value={extraValueInput}
-                onChange={(event) => setExtraValueInput(event.target.value)}
-                placeholder="Valor (ej: 4)"
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-              />
-              <AppButton type="button" variant="ghost" onClick={addExtraFeature}>
-                Agregar
-              </AppButton>
-            </div>
+            <AnimatePresence initial={false}>
+              {isExtraOpen ? (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 space-y-3">
+                    <p className="text-xs text-slate">
+                      Agrega campos como "Parrillas", "Piscinas", "Quincho", etc.
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                      <input
+                        value={extraLabelInput}
+                        onChange={(event) => setExtraLabelInput(event.target.value)}
+                        placeholder="Nombre (ej: Parrillas)"
+                        className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                      />
+                      <input
+                        value={extraValueInput}
+                        onChange={(event) => setExtraValueInput(event.target.value)}
+                        placeholder="Valor (ej: 4)"
+                        className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                      />
+                      <AppButton type="button" variant="ghost" onClick={addExtraFeature}>
+                        Agregar
+                      </AppButton>
+                    </div>
 
-            {(form.caracteristicasExtras || []).length > 0 ? (
-              <div className="space-y-2">
-                {(form.caracteristicasExtras || []).map((item) => (
-                  <div key={item.id} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
-                    <input
-                      value={item.label}
-                      onChange={(event) => updateExtraFeature(item.id, "label", event.target.value)}
-                      className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                    />
-                    <input
-                      value={item.value}
-                      onChange={(event) => updateExtraFeature(item.id, "value", event.target.value)}
-                      className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                    />
-                    <AppButton type="button" variant="ghost" onClick={() => removeExtraFeature(item.id)}>
-                      Eliminar
-                    </AppButton>
+                    {extraFeaturesCount > 0 ? (
+                      <div className="space-y-2">
+                        {(form.caracteristicasExtras || []).map((item) => (
+                          <div key={item.id} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                            <input
+                              value={item.label}
+                              onChange={(event) => updateExtraFeature(item.id, "label", event.target.value)}
+                              className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                            />
+                            <input
+                              value={item.value}
+                              onChange={(event) => updateExtraFeature(item.id, "value", event.target.value)}
+                              className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                            />
+                            <AppButton type="button" variant="ghost" onClick={() => removeExtraFeature(item.id)}>
+                              Eliminar
+                            </AppButton>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate">Todavia no hay caracteristicas adicionales.</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate">Todavia no hay caracteristicas personalizadas.</p>
-            )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </FormSection>
 
