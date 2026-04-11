@@ -35,7 +35,7 @@ function ActionButton({ to, primary = false, children, external = false }) {
     primary
       ? "border-[#041B2C] bg-[#041B2C] text-white hover:bg-[#163649]"
       : "border-stone bg-white text-ink hover:border-ink"
-  }`;
+  } whitespace-nowrap`;
 
   if (external) {
     return (
@@ -75,7 +75,7 @@ export function AdminPropertiesPage() {
               <th className="px-4 py-3 font-medium">Precio</th>
               <th className="px-4 py-3 font-medium">Estado</th>
               <th className="px-4 py-3 font-medium">Portada</th>
-              <th className="px-4 py-3 font-medium">Acciones</th>
+              <th className="w-[290px] px-4 py-3 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -113,8 +113,8 @@ export function AdminPropertiesPage() {
                     </span>
                   </td>
                   <td className="px-4 py-4">{property.destacadaEnPortada ? "Si" : "No"}</td>
-                  <td className="px-4 py-4">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="w-[290px] px-4 py-4">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
                       <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
@@ -192,4 +192,3 @@ export function AdminPropertiesPage() {
     </section>
   );
 }
-
