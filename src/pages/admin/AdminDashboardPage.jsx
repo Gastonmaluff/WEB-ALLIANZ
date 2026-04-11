@@ -85,6 +85,13 @@ export function AdminDashboardPage() {
               <p className="mt-2 font-semibold text-ink">Gestionar testimonios</p>
             </Link>
             <Link
+              to={ROUTES.adminHero}
+              className="border border-stone bg-surface p-4 text-sm transition hover:border-ink"
+            >
+              <p className="text-xs uppercase tracking-editorial text-slate">Portada</p>
+              <p className="mt-2 font-semibold text-ink">Editar Hero de Home</p>
+            </Link>
+            <Link
               to={ROUTES.properties}
               className="border border-stone bg-surface p-4 text-sm transition hover:border-ink"
             >

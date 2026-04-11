@@ -9,6 +9,7 @@ import { ContactPage } from "../pages/public/ContactPage";
 import { NotFoundPage } from "../pages/public/NotFoundPage";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage";
 import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
+import { AdminHeroPage } from "../pages/admin/AdminHeroPage";
 import { AdminPropertiesPage } from "../pages/admin/AdminPropertiesPage";
 import { AdminPropertyFormPage } from "../pages/admin/AdminPropertyFormPage";
 import { AdminTestimonialsPage } from "../pages/admin/AdminTestimonialsPage";
@@ -41,6 +42,7 @@ export const appRouter = createBrowserRouter(
           element: <AdminLayout />,
           children: [
             { index: true, element: <AdminDashboardPage /> },
+            { path: "hero", element: <AdminHeroPage /> },
             { path: "propiedades", element: <AdminPropertiesPage /> },
             { path: "propiedades/nueva", element: <AdminPropertyFormPage /> },
             { path: "propiedades/:slug/editar", element: <AdminPropertyFormPage /> },

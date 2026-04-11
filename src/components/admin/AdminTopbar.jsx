@@ -5,6 +5,7 @@ import { ROUTES } from "../../router/paths";
 const pageMap = [
   { key: "/admin/propiedades/nueva", label: "Nueva Propiedad" },
   { key: "/admin/propiedades/", label: "Editar Propiedad" },
+  { key: "/admin/hero", label: "Hero Home" },
   { key: "/admin/propiedades", label: "Propiedades" },
   { key: "/admin/testimonios", label: "Testimonios" },
   { key: "/admin", label: "Dashboard" },

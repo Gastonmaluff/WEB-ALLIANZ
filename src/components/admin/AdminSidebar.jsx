@@ -3,6 +3,7 @@ import { ROUTES } from "../../router/paths";
 
 export const adminNavLinks = [
   { to: ROUTES.adminDashboard, label: "Dashboard" },
+  { to: ROUTES.adminHero, label: "Hero Home" },
   { to: ROUTES.adminProperties, label: "Propiedades" },
   { to: ROUTES.adminTestimonials, label: "Testimonios" },
 ];

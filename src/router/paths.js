@@ -7,6 +7,7 @@ export const ROUTES = {
   adminLogin: "/admin/login",
   adminRoot: "/admin",
   adminDashboard: "/admin",
+  adminHero: "/admin/hero",
   adminProperties: "/admin/propiedades",
   adminPropertyNew: "/admin/propiedades/nueva",
   adminPropertyEdit: "/admin/propiedades/:slug/editar",
