@@ -50,7 +50,11 @@ export function AdminPropertiesPage() {
                   </div>
                 </td>
                 <td className="px-4 py-4">{formatOperationLabel(property.tipoOperacion)}</td>
-                <td className="px-4 py-4">{formatCurrency(property.precio, property.moneda)}</td>
+                <td className="px-4 py-4">
+                  {property.consultarPrecio
+                    ? "Consultar precio"
+                    : formatCurrency(property.precio, property.moneda)}
+                </td>
                 <td className="px-4 py-4 capitalize">{property.estado}</td>
                 <td className="px-4 py-4">{property.destacadaEnPortada ? "Si" : "No"}</td>
                 <td className="px-4 py-4">
@@ -85,7 +89,9 @@ export function AdminPropertiesPage() {
                   {formatOperationLabel(property.tipoOperacion)} · {toTitle(property.estado)}
                 </p>
                 <p className="mt-2 text-sm font-semibold text-ink">
-                  {formatCurrency(property.precio, property.moneda)}
+                  {property.consultarPrecio
+                    ? "Consultar precio"
+                    : formatCurrency(property.precio, property.moneda)}
                 </p>
               </div>
             </div>

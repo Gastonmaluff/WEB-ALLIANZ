@@ -4,9 +4,9 @@ import { AppButton } from "../../components/common/AppButton";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { ROUTES } from "../../router/paths";
-import { formatOperationLabel } from "../../utils/format";
+import { formatOperationLabel, slugify } from "../../utils/format";
 
-const propertyTypes = ["Casa", "Departamento", "Terreno", "Oficina"];
+const propertyTypes = ["Casa", "Departamento", "Lote", "Terreno", "Oficina"];
 const currencies = ["USD", "PYG"];
 const numberFields = ["precio", "superficie", "dormitorios", "banos", "cochera"];
 
@@ -14,8 +14,26 @@ function uniqueImages(images) {
   return [...new Set(images.filter(Boolean).map((img) => img.trim()))];
 }
 
+function normalizeExtraFeatures(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item, index) => ({
+      id: item?.id || `extra-${Date.now()}-${index}`,
+      label: String(item?.label || "").trim(),
+      value: String(item?.value || "").trim(),
+    }))
+    .filter((item) => item.label && item.value);
+}
+
 function normalizeProperty(foundProperty) {
-  if (!foundProperty) return { ...emptyProperty, publicada: true };
+  if (!foundProperty) {
+    return {
+      ...emptyProperty,
+      publicada: true,
+      consultarPrecio: false,
+      caracteristicasExtras: [],
+    };
+  }
 
   const principal = foundProperty.imagenPrincipal || "";
   const gallery = uniqueImages([...(foundProperty.imagenes || [])]).filter((img) => img !== principal);
@@ -26,6 +44,8 @@ function normalizeProperty(foundProperty) {
     imagenPrincipal: principal || gallery[0] || "",
     imagenes: principal ? gallery : gallery.slice(1),
     publicada: foundProperty.publicada ?? true,
+    consultarPrecio: foundProperty.consultarPrecio ?? false,
+    caracteristicasExtras: normalizeExtraFeatures(foundProperty.caracteristicasExtras),
   };
 }
 
@@ -59,12 +79,13 @@ function validateForm(form) {
   const errors = {};
 
   if (!form.titulo.trim()) errors.titulo = "Ingresa un titulo.";
-  if (!form.slug.trim()) errors.slug = "Ingresa un slug.";
   if (!form.tipoOperacion) errors.tipoOperacion = "Selecciona tipo de operacion.";
   if (!form.tipoPropiedad) errors.tipoPropiedad = "Selecciona tipo de propiedad.";
   if (!form.estado) errors.estado = "Selecciona estado.";
   if (!form.moneda) errors.moneda = "Selecciona moneda.";
-  if (Number(form.precio) <= 0) errors.precio = "El precio debe ser mayor a 0.";
+  if (!form.consultarPrecio && Number(form.precio) <= 0) {
+    errors.precio = "El precio debe ser mayor a 0 o activar 'Consultar precio'.";
+  }
   if (!form.ubicacion.trim()) errors.ubicacion = "Ingresa una ubicacion.";
   if (!form.descripcionCorta.trim()) errors.descripcionCorta = "Completa la descripcion corta.";
   if (!form.descripcionLarga.trim()) errors.descripcionLarga = "Completa la descripcion larga.";
@@ -86,8 +107,11 @@ export function AdminPropertyFormPage() {
 
   const [form, setForm] = useState(() => normalizeProperty(editingProperty));
   const [galleryInput, setGalleryInput] = useState("");
+  const [extraLabelInput, setExtraLabelInput] = useState("");
+  const [extraValueInput, setExtraValueInput] = useState("");
   const [errors, setErrors] = useState({});
   const [saveFeedback, setSaveFeedback] = useState("");
+  const generatedSlug = useMemo(() => slugify(form.titulo), [form.titulo]);
 
   const allGallery = useMemo(
     () => uniqueImages([form.imagenPrincipal, ...form.imagenes]),
@@ -167,6 +191,38 @@ export function AdminPropertyFormPage() {
     setForm((prev) => ({ ...prev, imagenes: nextImages }));
   };
 
+  const addExtraFeature = () => {
+    const label = extraLabelInput.trim();
+    const value = extraValueInput.trim();
+    if (!label || !value) return;
+
+    setForm((prev) => ({
+      ...prev,
+      caracteristicasExtras: [
+        ...(prev.caracteristicasExtras || []),
+        { id: `extra-${Date.now()}`, label, value },
+      ],
+    }));
+    setExtraLabelInput("");
+    setExtraValueInput("");
+  };
+
+  const updateExtraFeature = (id, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      caracteristicasExtras: (prev.caracteristicasExtras || []).map((item) =>
+        item.id === id ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+  const removeExtraFeature = (id) => {
+    setForm((prev) => ({
+      ...prev,
+      caracteristicasExtras: (prev.caracteristicasExtras || []).filter((item) => item.id !== id),
+    }));
+  };
+
   const handleSubmit = (event) => {
     event.preventDefault();
     const validationErrors = validateForm(form);
@@ -179,8 +235,10 @@ export function AdminPropertyFormPage() {
 
     const payload = {
       ...form,
+      slug: generatedSlug,
       imagenPrincipal: form.imagenPrincipal,
       imagenes: form.imagenes.filter((image) => image !== form.imagenPrincipal),
+      caracteristicasExtras: normalizeExtraFeatures(form.caracteristicasExtras),
       precio: Number(form.precio),
       superficie: Number(form.superficie),
       dormitorios: Number(form.dormitorios),
@@ -232,13 +290,16 @@ export function AdminPropertyFormPage() {
               />
             </Field>
 
-            <Field label="Slug" name="slug" required help="Ejemplo: departamento-premium-luque" error={errors.slug}>
+            <Field
+              label="Slug generado automaticamente"
+              name="slugPreview"
+              help="Se genera en base al titulo para evitar errores."
+            >
               <input
-                id="slug"
-                name="slug"
-                value={form.slug}
-                onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                id="slugPreview"
+                value={generatedSlug || "se-generara-cuando-escribas-el-titulo"}
+                readOnly
+                className="w-full border border-stone bg-[#EEF1F3] px-4 py-3 text-sm text-slate outline-none"
               />
             </Field>
 
@@ -299,8 +360,30 @@ export function AdminPropertyFormPage() {
           title="B. Precio y ubicacion"
           description="Completa datos financieros y de localizacion para publicacion."
         >
+          <label className="flex items-start gap-3 border border-stone bg-surface p-4">
+            <input
+              type="checkbox"
+              name="consultarPrecio"
+              checked={Boolean(form.consultarPrecio)}
+              onChange={handleChange}
+              className="mt-0.5 h-4 w-4 accent-[#041B2C]"
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">Mostrar "Consultar precio"</span>
+              <span className="block text-xs text-slate">
+                Si activas esta opcion, en el sitio publico no se mostrara el precio y aparecera un boton que abre WhatsApp.
+              </span>
+            </span>
+          </label>
+
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Precio" name="precio" required error={errors.precio}>
+            <Field
+              label="Precio"
+              name="precio"
+              required={!form.consultarPrecio}
+              error={errors.precio}
+              help={form.consultarPrecio ? "El precio queda oculto en la web publica." : undefined}
+            >
               <input
                 id="precio"
                 name="precio"
@@ -308,7 +391,10 @@ export function AdminPropertyFormPage() {
                 min="0"
                 value={form.precio}
                 onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                disabled={Boolean(form.consultarPrecio)}
+                className={`w-full border border-stone px-4 py-3 text-sm outline-none focus:border-ink ${
+                  form.consultarPrecio ? "cursor-not-allowed bg-[#EEF1F3] text-slate" : "bg-surface"
+                }`}
               />
             </Field>
 
@@ -405,6 +491,59 @@ export function AdminPropertyFormPage() {
                 className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
               />
             </Field>
+          </div>
+
+          <div className="space-y-3 border-t border-stone pt-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-editorial text-slate">
+                Caracteristicas personalizadas
+              </p>
+              <p className="text-xs text-slate">
+                Agrega campos extra como "Parrillas", "Piscinas", "Quincho", etc.
+              </p>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+              <input
+                value={extraLabelInput}
+                onChange={(event) => setExtraLabelInput(event.target.value)}
+                placeholder="Nombre (ej: Parrillas)"
+                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+              />
+              <input
+                value={extraValueInput}
+                onChange={(event) => setExtraValueInput(event.target.value)}
+                placeholder="Valor (ej: 4)"
+                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+              />
+              <AppButton type="button" variant="ghost" onClick={addExtraFeature}>
+                Agregar
+              </AppButton>
+            </div>
+
+            {(form.caracteristicasExtras || []).length > 0 ? (
+              <div className="space-y-2">
+                {(form.caracteristicasExtras || []).map((item) => (
+                  <div key={item.id} className="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+                    <input
+                      value={item.label}
+                      onChange={(event) => updateExtraFeature(item.id, "label", event.target.value)}
+                      className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                    />
+                    <input
+                      value={item.value}
+                      onChange={(event) => updateExtraFeature(item.id, "value", event.target.value)}
+                      className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                    />
+                    <AppButton type="button" variant="ghost" onClick={() => removeExtraFeature(item.id)}>
+                      Eliminar
+                    </AppButton>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate">Todavia no hay caracteristicas personalizadas.</p>
+            )}
           </div>
         </FormSection>
 

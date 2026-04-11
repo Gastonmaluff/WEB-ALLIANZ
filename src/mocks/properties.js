@@ -6,6 +6,7 @@ export const MOCK_PROPERTIES = [
     tipoOperacion: "venta",
     tipoPropiedad: "Casa",
     precio: 14500000,
+    consultarPrecio: true,
     moneda: "USD",
     ubicacion: "Luque, Paraguay",
     googleMapsUrl: "https://maps.google.com/?q=Luque+Paraguay",
@@ -13,6 +14,10 @@ export const MOCK_PROPERTIES = [
     dormitorios: 5,
     banos: 6,
     cochera: 3,
+    caracteristicasExtras: [
+      { id: "tg-piscina", label: "Piscina", value: "2" },
+      { id: "tg-parrillas", label: "Parrillas", value: "4" },
+    ],
     descripcionCorta: "Residencia de arquitectura contemporanea con terminaciones de lujo.",
     descripcionLarga:
       "Una pieza de diseno de alto impacto, con grandes panos de vidrio, doble altura y un jardin posterior con piscina infinita.",
@@ -33,6 +38,7 @@ export const MOCK_PROPERTIES = [
     tipoOperacion: "venta_o_alquiler",
     tipoPropiedad: "Departamento",
     precio: 8250000,
+    consultarPrecio: false,
     moneda: "USD",
     ubicacion: "Asuncion, Paraguay",
     googleMapsUrl: "https://maps.google.com/?q=Asuncion+Paraguay",

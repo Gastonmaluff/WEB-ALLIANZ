@@ -1,7 +1,12 @@
 import { Link, useParams } from "react-router-dom";
 import { useMemo } from "react";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
-import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
+import {
+  buildPropertyWhatsappUrl,
+  formatCurrency,
+  formatOperationLabel,
+  toTitle,
+} from "../../utils/format";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { ImageSlider } from "../../components/common/ImageSlider";
@@ -16,9 +21,10 @@ export function PropertyDetailPage() {
   const mapEmbedUrl = `https://maps.google.com/maps?q=${encodeURIComponent(
     property?.ubicacion || ""
   )}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
-  const whatsappUrl = `https://wa.me/595981000000?text=${encodeURIComponent(
-    `Hola Allianz, me interesa la propiedad ${property?.titulo || ""} (${property?.ubicacion || ""}).`
-  )}`;
+  const whatsappUrl = buildPropertyWhatsappUrl(property);
+  const extraFeatures = (property?.caracteristicasExtras || []).filter(
+    (item) => item?.label && String(item.label).trim() && item?.value !== undefined && item?.value !== null && String(item.value).trim()
+  );
 
   if (!property) {
     return (
@@ -60,9 +66,20 @@ export function PropertyDetailPage() {
             containerClassName="h-[420px] border-fine lg:col-span-2 lg:h-[560px]"
           />
           <div className="space-y-4 border-fine bg-paper p-6">
-            <p className="font-display text-5xl leading-none">
-              {formatCurrency(property.precio, property.moneda)}
-            </p>
+            {property.consultarPrecio ? (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex w-full items-center justify-center border border-ink px-5 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink transition hover:bg-ink hover:text-paper"
+              >
+                Consultar precio
+              </a>
+            ) : (
+              <p className="font-display text-5xl leading-none">
+                {formatCurrency(property.precio, property.moneda)}
+              </p>
+            )}
             <p className="text-sm text-slate">{property.descripcionCorta}</p>
             <div className="grid grid-cols-2 gap-3 text-sm text-slate">
               <p>Superficie: {property.superficie} m2</p>
@@ -70,6 +87,11 @@ export function PropertyDetailPage() {
               <p>Banos: {property.banos}</p>
               <p>Cochera: {property.cochera}</p>
               <p className="col-span-2">Estado: {toTitle(property.estado)}</p>
+              {extraFeatures.map((item, index) => (
+                <p key={`${item.label}-${index}`} className="col-span-2">
+                  {item.label}: {item.value}
+                </p>
+              ))}
             </div>
             <div className="grid gap-2">
               <a

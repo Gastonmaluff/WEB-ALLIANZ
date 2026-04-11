@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
-import { formatCurrency } from "../../utils/format";
+import { buildPropertyWhatsappUrl, formatCurrency } from "../../utils/format";
 import { ImageSlider } from "../common/ImageSlider";
 
 export function PropertyCard({ property }) {
@@ -10,6 +10,7 @@ export function PropertyCard({ property }) {
     const fromProperty = [property.imagenPrincipal, ...(property.imagenes || [])];
     return [...new Set(fromProperty.filter(Boolean))];
   }, [property.imagenPrincipal, property.imagenes]);
+  const whatsappUrl = buildPropertyWhatsappUrl(property);
 
   const openDetail = () => navigate(detailPath);
 
@@ -51,9 +52,21 @@ export function PropertyCard({ property }) {
               {property.titulo}
             </Link>
           </h3>
-          <p className="min-w-[130px] pt-1 text-right text-sm font-semibold tracking-[0.08em] text-ink">
-            {formatCurrency(property.precio, property.moneda)}
-          </p>
+          {property.consultarPrecio ? (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(event) => event.stopPropagation()}
+              className="min-w-[130px] border border-ink px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:bg-ink hover:text-paper"
+            >
+              Consultar precio
+            </a>
+          ) : (
+            <p className="min-w-[130px] pt-1 text-right text-sm font-semibold tracking-[0.08em] text-ink">
+              {formatCurrency(property.precio, property.moneda)}
+            </p>
+          )}
           <p className="col-span-2 text-sm text-slate">{property.ubicacion}</p>
         </div>
 
