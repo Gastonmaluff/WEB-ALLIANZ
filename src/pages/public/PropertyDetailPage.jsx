@@ -126,17 +126,7 @@ export function PropertyDetailPage() {
             <LotBoundaryPublicOverlay
               overlay={{
                 ...lotBoundary,
-                label: {
-                  name:
-                    lotBoundary?.label?.name ||
-                    lotBoundary?.labelTitle ||
-                    property?.titulo ||
-                    "Lote",
-                  surface:
-                    lotBoundary?.label?.surface ||
-                    lotBoundary?.labelSubtitle ||
-                    (property.superficie ? `${property.superficie} m2` : ""),
-                },
+                labelTitle: lotBoundary?.labelTitle || (property.superficie ? `${property.superficie} m2` : ""),
               }}
               className="aspect-[16/9]"
             />

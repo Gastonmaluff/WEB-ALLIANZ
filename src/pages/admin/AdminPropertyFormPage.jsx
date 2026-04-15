@@ -13,7 +13,6 @@ import { uploadPropertyImage } from "../../firebase/storage";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { ROUTES } from "../../router/paths";
 import { formatOperationLabel, slugify } from "../../utils/format";
-import { formatBytes, optimizeLotImage } from "../../utils/imageOptimization";
 import { normalizePolygonPoints } from "../../utils/polygon";
 
 const propertyTypes = ["Casa", "Departamento", "Lote", "Terreno", "Oficina"];
@@ -37,29 +36,21 @@ function normalizeExtraFeatures(items) {
 
 function normalizeLotOverlay(overlay, fallbackTitle = "", legacyBoundary = null) {
   const source = overlay || legacyBoundary || {};
-  const labelName = String(source?.label?.name || source?.labelTitle || source?.label || fallbackTitle || "").trim();
-  const labelSurface = String(source?.label?.surface || source?.labelSubtitle || "").trim();
   return {
     imageUrl: String(source?.imageUrl || "").trim(),
-    previewUrl: String(source?.previewUrl || "").trim(),
     points: normalizePolygonPoints(source?.points || []),
     closed: Boolean(source?.closed),
-    strokeColor: String(source?.strokeColor || "#2B6D92"),
-    strokeWidth: Number(source?.strokeWidth || 1.8),
-    fillColor: String(source?.fillColor || "#2B6D92"),
+    strokeColor: String(source?.strokeColor || "#7DD3FC"),
+    strokeWidth: Number(source?.strokeWidth || 0.75),
+    fillColor: String(source?.fillColor || "#50BEFF"),
     fillOpacity: Number(source?.fillOpacity ?? 0.18),
-    animationDuration: Number(source?.animationDuration || 1.8),
+    animationDuration: Number(source?.animationDuration || 1.35),
     animate: source?.animate !== false,
     animateOnView: source?.animateOnView !== false,
     animateOnce: source?.animateOnce !== false,
     showLabel: source?.showLabel !== false,
-    label: {
-      name: labelName,
-      surface: labelSurface,
-    },
-    // Compatibilidad temporal para lecturas antiguas.
-    labelTitle: labelName,
-    labelSubtitle: labelSurface,
+    labelTitle: String(source?.labelTitle || source?.label || fallbackTitle || "").trim(),
+    labelSubtitle: String(source?.labelSubtitle || "").trim(),
   };
 }
 
@@ -210,16 +201,12 @@ export function AdminPropertyFormPage() {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
     setPropertyImagesUploading(true);
-    setSaveFeedback("Optimizando y subiendo imagenes de la propiedad...");
+    setSaveFeedback("Subiendo imagenes de la propiedad...");
     try {
       const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
       const uploadedUrls = [];
       for (let index = 0; index < files.length; index += 1) {
-        const optimized = await optimizeLotImage(files[index], { maxWidth: 2000, previewWidth: 1200 });
-        const remoteUrl = await uploadPropertyImage(
-          optimized.optimizedFile,
-          `properties/${propertyKey}/gallery`
-        );
+        const remoteUrl = await uploadPropertyImage(files[index], `properties/${propertyKey}/gallery`);
         uploadedUrls.push(remoteUrl);
       }
 
@@ -237,10 +224,9 @@ export function AdminPropertyFormPage() {
           imagenes: merged.filter((item) => item !== prev.imagenPrincipal),
         };
       });
+
       setErrors((prev) => ({ ...prev, imagenPrincipal: "" }));
-      setSaveFeedback(
-        `Se subieron ${uploadedUrls.length} imagen(es) correctamente a Firebase Storage.`
-      );
+      setSaveFeedback(`Se subieron ${uploadedUrls.length} imagen(es) correctamente.`);
     } catch {
       setSaveFeedback("No se pudieron subir las imagenes. Intenta nuevamente.");
     } finally {
@@ -304,20 +290,6 @@ export function AdminPropertyFormPage() {
     setSaveFeedback("");
   };
 
-  const updateLotLabel = (patch) => {
-    setForm((prev) => ({
-      ...prev,
-      lotOverlay: {
-        ...prev.lotOverlay,
-        label: {
-          ...(prev.lotOverlay?.label || {}),
-          ...patch,
-        },
-      },
-    }));
-    setSaveFeedback("");
-  };
-
   const addLotImageUrl = () => {
     const value = lotImageInput.trim();
     if (!value) return;
@@ -326,29 +298,20 @@ export function AdminPropertyFormPage() {
   };
 
   const removeLotImage = () => {
-    updateLotBoundary({ imageUrl: "", previewUrl: "", points: [], closed: false });
+    updateLotBoundary({ imageUrl: "", points: [], closed: false });
   };
 
   const handleLotImageFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
     setLotUploading(true);
-    setSaveFeedback("Optimizando imagen aerea para rendimiento...");
     try {
-      const optimized = await optimizeLotImage(file, { maxWidth: 2000, previewWidth: 800 });
       const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
-      const [remoteUrl, previewUrl] = await Promise.all([
-        uploadPropertyImage(optimized.optimizedFile, `properties/${propertyKey}/lot-overlay/full`),
-        uploadPropertyImage(optimized.previewFile, `properties/${propertyKey}/lot-overlay/preview`),
-      ]);
-      updateLotBoundary({ imageUrl: remoteUrl, previewUrl });
-      setSaveFeedback(
-        `Imagen optimizada automaticamente para mejor rendimiento (${formatBytes(
-          optimized.meta.originalBytes
-        )} -> ${formatBytes(optimized.meta.optimizedBytes)}).`
-      );
+      const remoteUrl = await uploadPropertyImage(file, `properties/${propertyKey}/lot-overlay`);
+      updateLotBoundary({ imageUrl: remoteUrl });
+      setSaveFeedback("Imagen aerea subida correctamente a Firebase Storage.");
     } catch {
-      setSaveFeedback("No se pudo optimizar/subir la imagen a Storage. Intenta nuevamente.");
+      setSaveFeedback("No se pudo subir la imagen a Storage. Intenta nuevamente.");
     } finally {
       setLotUploading(false);
     }
@@ -825,8 +788,8 @@ export function AdminPropertyFormPage() {
               error={errors.imagenPrincipal}
               help={
                 propertyImagesUploading
-                  ? "Procesando archivos..."
-                  : "Sube una o varias imagenes. Se optimizan y se guardan en Firebase Storage."
+                  ? "Subiendo archivos..."
+                  : "Sube una o varias imagenes para la galeria."
               }
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -838,9 +801,7 @@ export function AdminPropertyFormPage() {
                 >
                   {propertyImagesUploading ? "Subiendo..." : "Subir archivos"}
                 </AppButton>
-                <span className="text-xs text-slate">
-                  Formatos sugeridos: JPG/PNG/WebP.
-                </span>
+                <span className="text-xs text-slate">JPG, PNG o WebP.</span>
               </div>
             </Field>
 
@@ -914,11 +875,7 @@ export function AdminPropertyFormPage() {
                   label="Imagen aerea del lote"
                   name="lotImageUrl"
                   error={errors.loteImageUrl}
-                  help={
-                    lotUploading
-                      ? "Procesando y subiendo imagen optimizada..."
-                      : "Puedes pegar una URL o cargar archivo desde la barra de acciones."
-                  }
+                  help={lotUploading ? "Subiendo imagen a Firebase Storage..." : "Puedes pegar una URL o cargar archivo desde la barra de acciones."}
                 >
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
@@ -935,7 +892,7 @@ export function AdminPropertyFormPage() {
                 </Field>
 
                 <LotBoundaryEditor
-                  imageUrl={form.lotOverlay?.previewUrl || form.lotOverlay?.imageUrl}
+                  imageUrl={form.lotOverlay?.imageUrl}
                   points={form.lotOverlay?.points || []}
                   closed={Boolean(form.lotOverlay?.closed)}
                   mode={editorMode}
@@ -950,7 +907,6 @@ export function AdminPropertyFormPage() {
                   onTogglePreview={() => setPreviewVisible((prev) => !prev)}
                   previewVisible={previewVisible}
                   isSaving={savingLotBoundary}
-                  isUploading={lotUploading}
                 />
                 {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
 
@@ -959,7 +915,6 @@ export function AdminPropertyFormPage() {
                     <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
                     <ul className="mt-2 space-y-1 text-sm text-ink">
                       <li>Imagen cargada: {form.lotOverlay?.imageUrl ? "Si" : "No"}</li>
-                      <li>Preview optimizada: {form.lotOverlay?.previewUrl ? "Si" : "No"}</li>
                       <li>Puntos: {(form.lotOverlay?.points || []).length}</li>
                       <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
                     </ul>
@@ -990,7 +945,7 @@ export function AdminPropertyFormPage() {
                       Color linea
                       <input
                         type="color"
-                        value={form.lotOverlay?.strokeColor || "#2B6D92"}
+                        value={form.lotOverlay?.strokeColor || "#7DD3FC"}
                         onChange={(event) => updateLotBoundary({ strokeColor: event.target.value })}
                         className="h-10 w-full border border-stone bg-white p-1"
                       />
@@ -999,10 +954,10 @@ export function AdminPropertyFormPage() {
                       Grosor linea
                       <input
                         type="number"
-                        min="1.2"
-                        max="3"
-                        step="0.1"
-                        value={form.lotOverlay?.strokeWidth || 1.8}
+                        min="0.2"
+                        max="4"
+                        step="0.05"
+                        value={form.lotOverlay?.strokeWidth || 0.75}
                         onChange={(event) => updateLotBoundary({ strokeWidth: Number(event.target.value) })}
                         className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
                       />
@@ -1011,7 +966,7 @@ export function AdminPropertyFormPage() {
                       Color relleno
                       <input
                         type="color"
-                        value={form.lotOverlay?.fillColor || "#2B6D92"}
+                        value={form.lotOverlay?.fillColor || "#50BEFF"}
                         onChange={(event) => updateLotBoundary({ fillColor: event.target.value })}
                         className="h-10 w-full border border-stone bg-white p-1"
                       />
@@ -1047,10 +1002,10 @@ export function AdminPropertyFormPage() {
                       Duracion (seg)
                       <input
                         type="number"
-                        min="1"
-                        max="4"
+                        min="0.5"
+                        max="6"
                         step="0.1"
-                        value={form.lotOverlay?.animationDuration || 1.8}
+                        value={form.lotOverlay?.animationDuration || 1.35}
                         onChange={(event) => updateLotBoundary({ animationDuration: Number(event.target.value) })}
                         className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
                       />
@@ -1088,15 +1043,15 @@ export function AdminPropertyFormPage() {
                     Mostrar etiqueta
                   </label>
                   <input
-                    value={form.lotOverlay?.label?.name || ""}
-                    onChange={(event) => updateLotLabel({ name: event.target.value })}
-                    placeholder="Nombre del lote"
+                    value={form.lotOverlay?.labelTitle || ""}
+                    onChange={(event) => updateLotBoundary({ labelTitle: event.target.value })}
+                    placeholder="Titulo"
                     className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
                   />
                   <input
-                    value={form.lotOverlay?.label?.surface || ""}
-                    onChange={(event) => updateLotLabel({ surface: event.target.value })}
-                    placeholder="Superficie (ej: 450 m²)"
+                    value={form.lotOverlay?.labelSubtitle || ""}
+                    onChange={(event) => updateLotBoundary({ labelSubtitle: event.target.value })}
+                    placeholder="Subtitulo"
                     className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
                   />
                 </article>

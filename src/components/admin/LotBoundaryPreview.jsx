@@ -3,12 +3,12 @@ import { LotBoundaryOverlay } from "../common/LotBoundaryOverlay";
 export function LotBoundaryPreview({ overlay, className = "" }) {
   return (
     <LotBoundaryOverlay
-      imageUrl={overlay?.previewUrl || overlay?.imageUrl}
+      imageUrl={overlay?.imageUrl}
       points={overlay?.points || []}
       closed={Boolean(overlay?.closed)}
       label={overlay?.label || ""}
-      labelTitle={overlay?.label?.name || overlay?.labelTitle || ""}
-      labelSubtitle={overlay?.label?.surface || overlay?.labelSubtitle || ""}
+      labelTitle={overlay?.labelTitle || ""}
+      labelSubtitle={overlay?.labelSubtitle || ""}
       showLabel={overlay?.showLabel !== false}
       strokeColor={overlay?.strokeColor}
       strokeWidth={overlay?.strokeWidth}
@@ -16,9 +16,9 @@ export function LotBoundaryPreview({ overlay, className = "" }) {
       fillOpacity={overlay?.fillOpacity}
       animate={overlay?.animate !== false}
       animationDuration={overlay?.animationDuration}
-      animateOnView={false}
-      animateOnce={false}
-      trigger="mount"
+      animateOnView={overlay?.animateOnView !== false}
+      animateOnce={overlay?.animateOnce !== false}
+      trigger={overlay?.animateOnView !== false ? "viewport" : "mount"}
       className={className}
     />
   );
