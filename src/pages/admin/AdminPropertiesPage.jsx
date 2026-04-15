@@ -38,6 +38,8 @@ function ActionButton({
   compact = false,
   children,
   external = false,
+  title,
+  ariaLabel,
   className = "",
   onClick,
   disabled = false,
@@ -47,12 +49,19 @@ function ActionButton({
     : danger
     ? "border-[#D8C4C7] bg-[#F8F3F4] text-[#6F3F45] hover:border-[#B99EA3] hover:bg-[#F2EAEC]"
     : "border-stone bg-white text-ink hover:border-ink";
-  const sizeClassName = compact ? "px-2.5 py-1.5 text-[10px]" : "px-3 py-2 text-[11px]";
+  const sizeClassName = compact ? "px-2 py-1.5 text-[10px]" : "px-3 py-2 text-[11px]";
   const resolvedClassName = `inline-flex items-center justify-center gap-1.5 border ${sizeClassName} font-semibold uppercase tracking-editorial transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName} ${className}`;
 
   if (external) {
     return (
-      <a href={to} className={resolvedClassName} target="_blank" rel="noreferrer">
+      <a
+        href={to}
+        className={resolvedClassName}
+        target="_blank"
+        rel="noreferrer"
+        title={title}
+        aria-label={ariaLabel}
+      >
         {children}
       </a>
     );
@@ -60,14 +69,21 @@ function ActionButton({
 
   if (!to) {
     return (
-      <button type="button" onClick={onClick} className={resolvedClassName} disabled={disabled}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={resolvedClassName}
+        disabled={disabled}
+        title={title}
+        aria-label={ariaLabel}
+      >
         {children}
       </button>
     );
   }
 
   return (
-    <Link to={to} className={resolvedClassName}>
+    <Link to={to} className={resolvedClassName} title={title} aria-label={ariaLabel}>
       {children}
     </Link>
   );
@@ -140,12 +156,11 @@ export function AdminPropertiesPage() {
       <div className="hidden overflow-hidden border-fine bg-paper xl:block">
         <table className="w-full table-fixed text-left text-sm">
           <colgroup>
-            <col style={{ width: "38%" }} />
-            <col style={{ width: "12%" }} />
+            <col style={{ width: "43%" }} />
             <col style={{ width: "13%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "7%" }} />
-            <col style={{ width: "19%" }} />
+            <col style={{ width: "14%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "18%" }} />
           </colgroup>
           <thead className="border-b border-stone bg-surface">
             <tr>
@@ -153,7 +168,6 @@ export function AdminPropertiesPage() {
               <th className="px-3 py-3 font-medium">Operacion</th>
               <th className="px-3 py-3 font-medium">Precio</th>
               <th className="px-3 py-3 font-medium">Estado</th>
-              <th className="px-3 py-3 font-medium">Portada</th>
               <th className="px-3 py-3 font-medium">Acciones</th>
             </tr>
           </thead>
@@ -170,7 +184,7 @@ export function AdminPropertiesPage() {
                         className="h-16 w-[88px] border border-stone object-cover"
                       />
                       <div className="min-w-0">
-                        <p className="break-words text-[15px] font-semibold leading-tight text-ink">{property.titulo}</p>
+                        <p className="break-words text-sm font-semibold leading-tight text-ink">{property.titulo}</p>
                         <p className="mt-1 break-words text-xs leading-snug text-slate">{property.ubicacion}</p>
                         <p className="mt-1.5 text-[11px] uppercase tracking-editorial text-slate">
                           {toTitle(property.tipoPropiedad)}
@@ -179,10 +193,10 @@ export function AdminPropertiesPage() {
                     </div>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="break-words text-sm leading-snug text-ink">{formatOperationLabel(property.tipoOperacion)}</p>
+                    <p className="break-words text-[13px] leading-snug text-ink">{formatOperationLabel(property.tipoOperacion)}</p>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="break-words text-sm leading-snug text-ink">
+                    <p className="break-words text-[13px] leading-snug text-ink">
                       {property.consultarPrecio
                         ? "Consultar precio"
                         : formatCurrency(property.precio, property.moneda)}
@@ -196,10 +210,7 @@ export function AdminPropertiesPage() {
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="text-sm text-ink">{property.destacadaEnPortada ? "Si" : "No"}</span>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap items-center gap-2 2xl:flex-nowrap">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
                       <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary compact>
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
@@ -217,11 +228,17 @@ export function AdminPropertiesPage() {
                         </svg>
                         {deletingId === property.id ? "Eliminando..." : "Eliminar"}
                       </ActionButton>
-                      <ActionButton to={`/propiedades/${property.slug}`} compact className="ml-0 2xl:ml-auto">
+                      <ActionButton
+                        to={`/propiedades/${property.slug}`}
+                        compact
+                        title="Ver en el sitio"
+                        ariaLabel="Ver en el sitio"
+                        className="h-8 w-8 px-0"
+                      >
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="M3 10h14M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" stroke="currentColor" strokeWidth="1.3" />
                         </svg>
-                        Ver en el sitio
+                        <span className="sr-only">Ver en el sitio</span>
                       </ActionButton>
                     </div>
                   </td>
@@ -263,9 +280,6 @@ export function AdminPropertiesPage() {
               </div>
 
               <div className="mt-4 border-t border-stone pt-3">
-                <p className="mb-3 text-[11px] uppercase tracking-editorial text-slate">
-                  {property.destacadaEnPortada ? "En portada" : "Sin portada"}
-                </p>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
                     <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
