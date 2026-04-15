@@ -1,9 +1,14 @@
+import { useEffect, useState } from "react";
 import { HeroSection } from "../../components/public/HeroSection";
 import { FeaturedPropertiesSection } from "../../components/public/FeaturedPropertiesSection";
 import { PremiumZoneSection } from "../../components/public/PremiumZoneSection";
 import { TestimonialsSection } from "../../components/public/TestimonialsSection";
 import { ContactSection } from "../../components/public/ContactSection";
-import { getProperties } from "../../content/propertiesContent";
+import {
+  getProperties,
+  subscribeProperties,
+  syncPropertiesFromCloud,
+} from "../../content/propertiesContent";
 import { MOCK_TESTIMONIALS } from "../../mocks/testimonials";
 import { ROUTES } from "../../router/paths";
 
@@ -12,9 +17,20 @@ function isRentOperation(value) {
 }
 
 export function HomePage() {
-  const properties = getProperties();
+  const [properties, setProperties] = useState(() => getProperties());
+
+  useEffect(() => {
+    const unsubscribe = subscribeProperties((items) => {
+      setProperties(items);
+    });
+    syncPropertiesFromCloud();
+    return unsubscribe;
+  }, []);
+
   const featuredProperties = properties.filter((item) => item.destacadaEnPortada).slice(0, 3);
-  const lotsProperties = properties.filter((item) => item.tipoPropiedad === "Lote").slice(0, 3);
+  const lotsProperties = properties
+    .filter((item) => ["lote", "terreno"].includes(String(item.tipoPropiedad || "").toLowerCase()))
+    .slice(0, 3);
   const rentalProperties = properties.filter((item) => isRentOperation(item.tipoOperacion)).slice(0, 3);
 
   return (
