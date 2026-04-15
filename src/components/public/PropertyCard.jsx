@@ -19,6 +19,17 @@ export function PropertyCard({ property, coverMode = "default" }) {
       ? Boolean(lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2)
       : Boolean(lotBoundary?.enabled);
   const hasLotBoundary = lotBoundaryEnabled && lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2;
+  const metrics = useMemo(() => {
+    const list = [];
+    const bedrooms = Number(property?.dormitorios || 0);
+    const baths = Number(property?.banos || 0);
+    const garages = Number(property?.cochera || 0);
+    if (bedrooms > 0) list.push({ key: "dorm", label: "Dorm", value: bedrooms });
+    if (baths > 0) list.push({ key: "banos", label: "Banos", value: baths });
+    if (garages > 0) list.push({ key: "cochera", label: "Coch", value: garages });
+    list.push({ key: "m2", label: "m2", value: property?.superficie || 0 });
+    return list;
+  }, [property?.dormitorios, property?.banos, property?.cochera, property?.superficie]);
 
   const openDetail = () => navigate(detailPath);
 
@@ -91,19 +102,16 @@ export function PropertyCard({ property, coverMode = "default" }) {
 
         <p className="line-clamp-2 text-sm text-slate">{property.descripcionCorta}</p>
 
-        <div className="grid grid-cols-3 border-t border-stone pt-4 text-center text-xs uppercase tracking-[0.08em] text-slate">
-          <p>
-            <span className="mb-1 block text-base font-semibold text-ink">{property.dormitorios}</span>
-            Dorm
-          </p>
-          <p className="border-x border-stone">
-            <span className="mb-1 block text-base font-semibold text-ink">{property.banos}</span>
-            Banos
-          </p>
-          <p>
-            <span className="mb-1 block text-base font-semibold text-ink">{property.superficie}</span>
-            m2
-          </p>
+        <div
+          className="grid border-t border-stone pt-4 text-center text-xs uppercase tracking-[0.08em] text-slate"
+          style={{ gridTemplateColumns: `repeat(${metrics.length}, minmax(0, 1fr))` }}
+        >
+          {metrics.map((metric, index) => (
+            <p key={metric.key} className={index > 0 ? "border-l border-stone" : ""}>
+              <span className="mb-1 block text-base font-semibold text-ink">{metric.value}</span>
+              {metric.label}
+            </p>
+          ))}
         </div>
 
         <Link

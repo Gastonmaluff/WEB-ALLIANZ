@@ -20,6 +20,11 @@ const propertyTypes = ["Casa", "Departamento", "Lote", "Terreno", "Oficina"];
 const currencies = ["USD", "PYG"];
 const numberFields = ["precio", "superficie", "dormitorios", "banos", "cochera"];
 
+function toOptionalNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : "";
+}
+
 function uniqueImages(images) {
   return [...new Set(images.filter(Boolean).map((img) => img.trim()))];
 }
@@ -67,6 +72,9 @@ function normalizeProperty(foundProperty) {
       publicada: true,
       consultarPrecio: false,
       caracteristicasExtras: [],
+      dormitorios: "",
+      banos: "",
+      cochera: "",
       lotOverlay: normalizeLotOverlay(null),
     };
   }
@@ -81,6 +89,9 @@ function normalizeProperty(foundProperty) {
     imagenes: principal ? gallery : gallery.slice(1),
     publicada: foundProperty.publicada ?? true,
     consultarPrecio: foundProperty.consultarPrecio ?? false,
+    dormitorios: toOptionalNumber(foundProperty.dormitorios),
+    banos: toOptionalNumber(foundProperty.banos),
+    cochera: toOptionalNumber(foundProperty.cochera),
     caracteristicasExtras: normalizeExtraFeatures(foundProperty.caracteristicasExtras),
     lotOverlay: normalizeLotOverlay(
       foundProperty.lotOverlay,
@@ -156,6 +167,9 @@ export function AdminPropertyFormPage() {
   const [editorMode, setEditorMode] = useState(LOT_EDITOR_MODE.add);
   const [previewReplayCount, setPreviewReplayCount] = useState(0);
   const [savingLotBoundary, setSavingLotBoundary] = useState(false);
+  const [lotSaveState, setLotSaveState] = useState("idle");
+  const [formSaveState, setFormSaveState] = useState("idle");
+  const [savingForm, setSavingForm] = useState(false);
   const [lotUploading, setLotUploading] = useState(false);
   const [propertyImagesUploading, setPropertyImagesUploading] = useState(false);
   const [extraLabelInput, setExtraLabelInput] = useState("");
@@ -172,6 +186,7 @@ export function AdminPropertyFormPage() {
     () => uniqueImages([form.imagenPrincipal, ...form.imagenes]),
     [form.imagenPrincipal, form.imagenes]
   );
+  const isLotType = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
 
   useEffect(() => {
     syncPropertiesFromCloud();
@@ -189,6 +204,10 @@ export function AdminPropertyFormPage() {
     const { name, value, type, checked } = event.target;
     setErrors((prev) => ({ ...prev, [name]: "" }));
     setSaveFeedback("");
+    setFormSaveState("idle");
+    if (name === "tipoPropiedad") {
+      setLotSaveState("idle");
+    }
 
     if (type === "checkbox") {
       setForm((prev) => ({ ...prev, [name]: checked }));
@@ -208,6 +227,7 @@ export function AdminPropertyFormPage() {
     if (!files.length) return;
     setPropertyImagesUploading(true);
     setSaveFeedback("Subiendo imagenes de la propiedad...");
+    setFormSaveState("idle");
     try {
       const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
       const uploadedUrls = [];
@@ -246,6 +266,7 @@ export function AdminPropertyFormPage() {
   };
 
   const removeImage = (image) => {
+    setFormSaveState("idle");
     if (form.imagenPrincipal === image) {
       const rest = form.imagenes.filter((item) => item !== image);
       setForm((prev) => ({
@@ -264,6 +285,7 @@ export function AdminPropertyFormPage() {
 
   const setAsPrincipal = (image) => {
     if (form.imagenPrincipal === image) return;
+    setFormSaveState("idle");
 
     setForm((prev) => ({
       ...prev,
@@ -281,6 +303,7 @@ export function AdminPropertyFormPage() {
     if (target < 0 || target >= nextImages.length) return;
     [nextImages[index], nextImages[target]] = [nextImages[target], nextImages[index]];
     setForm((prev) => ({ ...prev, imagenes: nextImages }));
+    setFormSaveState("idle");
   };
 
   const updateLotBoundary = (patch) => {
@@ -294,6 +317,7 @@ export function AdminPropertyFormPage() {
     }));
     setErrors((prev) => ({ ...prev, loteImageUrl: "", lotePoints: "" }));
     setSaveFeedback("");
+    setLotSaveState("idle");
   };
 
   const removeLotImage = () => {
@@ -304,6 +328,7 @@ export function AdminPropertyFormPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setLotUploading(true);
+    setLotSaveState("idle");
     setSaveFeedback("Optimizando imagen aerea...");
     try {
       const { optimizedFile, meta } = await optimizeLotImage(file);
@@ -329,14 +354,17 @@ export function AdminPropertyFormPage() {
 
   const saveLotBoundaryOnly = async () => {
     if (!form.lotOverlay?.enabled) {
+      setLotSaveState("error");
       setSaveFeedback("Activa 'Habilitar delimitacion visual' para guardar esta configuracion.");
       return;
     }
     if (!form.lotOverlay?.imageUrl) {
+      setLotSaveState("error");
       setSaveFeedback("Primero carga la imagen aerea.");
       return;
     }
     if ((form.lotOverlay?.points || []).length < 3 || !form.lotOverlay?.closed) {
+      setLotSaveState("error");
       setSaveFeedback("Cierra el poligono con al menos 3 vertices antes de guardar.");
       return;
     }
@@ -356,11 +384,14 @@ export function AdminPropertyFormPage() {
     };
 
     setSavingLotBoundary(true);
+    setLotSaveState("saving");
     try {
       await upsertProperty(payload);
-      setSaveFeedback("Delimitacion guardada en Firestore.");
+      setLotSaveState("success");
+      setSaveFeedback("Delimitacion guardada correctamente.");
     } catch {
-      setSaveFeedback("No se pudo guardar la delimitacion en Firestore.");
+      setLotSaveState("error");
+      setSaveFeedback("No se pudo guardar la delimitacion. Intenta nuevamente.");
     } finally {
       setSavingLotBoundary(false);
     }
@@ -378,6 +409,7 @@ export function AdminPropertyFormPage() {
         { id: `extra-${Date.now()}`, label, value },
       ],
     }));
+    setFormSaveState("idle");
     setExtraLabelInput("");
     setExtraValueInput("");
   };
@@ -389,6 +421,7 @@ export function AdminPropertyFormPage() {
         item.id === id ? { ...item, [field]: value } : item
       ),
     }));
+    setFormSaveState("idle");
   };
 
   const removeExtraFeature = (id) => {
@@ -396,15 +429,18 @@ export function AdminPropertyFormPage() {
       ...prev,
       caracteristicasExtras: (prev.caracteristicasExtras || []).filter((item) => item.id !== id),
     }));
+    setFormSaveState("idle");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     const validationErrors = validateForm(form);
     setErrors(validationErrors);
+    setFormSaveState("idle");
 
     if (Object.keys(validationErrors).length) {
       setSaveFeedback("Revisa los campos marcados para continuar.");
+      setFormSaveState("error");
       return;
     }
 
@@ -423,11 +459,17 @@ export function AdminPropertyFormPage() {
       lotOverlay: normalizeLotOverlay(form.lotOverlay, form.superficie ? `${form.superficie} m2` : ""),
     };
 
+    setSavingForm(true);
+    setFormSaveState("saving");
     try {
       await upsertProperty(payload);
-      setSaveFeedback("Propiedad guardada correctamente en Firestore.");
+      setSaveFeedback("Cambios guardados correctamente.");
+      setFormSaveState("success");
     } catch {
-      setSaveFeedback("No se pudo guardar en Firestore. Revisa conexion y permisos.");
+      setSaveFeedback("No se pudo guardar. Revisa conexion y permisos.");
+      setFormSaveState("error");
+    } finally {
+      setSavingForm(false);
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -634,7 +676,10 @@ export function AdminPropertyFormPage() {
                 min="0"
                 value={form.dormitorios}
                 onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                placeholder="Opcional"
+                className={`w-full border px-4 py-3 text-sm outline-none focus:border-ink ${
+                  isLotType ? "border-[#CFD7DC] bg-[#F6F8F9] text-slate" : "border-stone bg-surface"
+                }`}
               />
             </Field>
             <Field label="Banos" name="banos">
@@ -645,7 +690,10 @@ export function AdminPropertyFormPage() {
                 min="0"
                 value={form.banos}
                 onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                placeholder="Opcional"
+                className={`w-full border px-4 py-3 text-sm outline-none focus:border-ink ${
+                  isLotType ? "border-[#CFD7DC] bg-[#F6F8F9] text-slate" : "border-stone bg-surface"
+                }`}
               />
             </Field>
             <Field label="Cocheras" name="cochera">
@@ -656,10 +704,18 @@ export function AdminPropertyFormPage() {
                 min="0"
                 value={form.cochera}
                 onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                placeholder="Opcional"
+                className={`w-full border px-4 py-3 text-sm outline-none focus:border-ink ${
+                  isLotType ? "border-[#CFD7DC] bg-[#F6F8F9] text-slate" : "border-stone bg-surface"
+                }`}
               />
             </Field>
           </div>
+          {isLotType ? (
+            <p className="text-xs text-slate">
+              En propiedades tipo lote, dormitorios, banos y cocheras son opcionales y no se mostraran si quedan vacios.
+            </p>
+          ) : null}
 
           <div className="border-t border-stone pt-3">
             <button
@@ -927,8 +983,17 @@ export function AdminPropertyFormPage() {
                     onRequestSave={saveLotBoundaryOnly}
                     onRequestPreview={() => setPreviewReplayCount((prev) => prev + 1)}
                     isSaving={savingLotBoundary}
+                    saveState={lotSaveState}
                   />
                   {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
+                  {lotSaveState === "success" ? (
+                    <p className="text-xs font-medium text-[#2D6249]">Delimitacion guardada.</p>
+                  ) : null}
+                  {lotSaveState === "error" ? (
+                    <p className="text-xs font-medium text-[#7A2A2A]">
+                      No se guardo la delimitacion. Revisa los datos e intenta nuevamente.
+                    </p>
+                  ) : null}
 
                   <div className="space-y-2 lg:hidden">
                     <article className="border border-stone bg-surface p-4">
@@ -1141,11 +1206,27 @@ export function AdminPropertyFormPage() {
         </FormSection>
 
         <div className="flex flex-wrap gap-3">
-          <AppButton type="submit">{isEdit ? "Guardar cambios" : "Crear propiedad"}</AppButton>
+          <AppButton type="submit" disabled={savingForm}>
+            {savingForm
+              ? "Guardando..."
+              : formSaveState === "success"
+              ? isEdit
+                ? "Cambios guardados"
+                : "Propiedad creada"
+              : isEdit
+              ? "Guardar cambios"
+              : "Crear propiedad"}
+          </AppButton>
           <AppButton to={ROUTES.adminProperties} variant="ghost">
             Volver al listado
           </AppButton>
         </div>
+        {formSaveState === "error" ? (
+          <p className="text-xs font-medium text-[#7A2A2A]">No se pudo guardar. Intenta nuevamente.</p>
+        ) : null}
+        {formSaveState === "success" ? (
+          <p className="text-xs font-medium text-[#2D6249]">Cambios guardados correctamente.</p>
+        ) : null}
       </form>
     </section>
   );

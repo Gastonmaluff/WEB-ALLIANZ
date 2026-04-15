@@ -63,6 +63,7 @@ export function LotBoundaryEditor({
   onRequestSave,
   onRequestPreview,
   isSaving = false,
+  saveState = "idle",
 }) {
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
   const [draggingPointId, setDraggingPointId] = useState("");
@@ -163,6 +164,14 @@ export function LotBoundaryEditor({
   const pointsString = polygonPointsToString(normalizedPoints);
   const cursorClass = mode === LOT_EDITOR_MODE.add ? "cursor-crosshair" : "cursor-not-allowed";
 
+  const saveLabel = isSaving
+    ? "Guardando..."
+    : saveState === "success"
+    ? "Delimitacion guardada"
+    : saveState === "error"
+    ? "Reintentar guardado"
+    : "Guardar delimitacion";
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
@@ -182,7 +191,7 @@ export function LotBoundaryEditor({
           Vista previa
         </ToolButton>
         <ToolButton primary onClick={onRequestSave} disabled={!imageUrl || isSaving}>
-          {isSaving ? "Guardando..." : "Guardar delimitacion"}
+          {saveLabel}
         </ToolButton>
       </div>
 

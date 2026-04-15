@@ -5,12 +5,28 @@ import {
   buildPropertyWhatsappUrl,
   formatCurrency,
   formatOperationLabel,
-  toTitle,
 } from "../../utils/format";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { ImageSlider } from "../../components/common/ImageSlider";
 import { LotBoundaryPublicOverlay } from "../../components/public/LotBoundaryPublicOverlay";
+
+function getPublicStatusBadge(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "disponible") {
+    return { label: "Disponible", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" };
+  }
+  if (normalized === "reservado") {
+    return { label: "Reservado", className: "bg-amber-50 text-amber-700 ring-1 ring-amber-200" };
+  }
+  if (normalized === "vendido") {
+    return { label: "Vendido", className: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" };
+  }
+  if (normalized === "alquilado") {
+    return { label: "Alquilado", className: "bg-[#EAF0F4] text-[#3F5E72] ring-1 ring-[#C8D6E0]" };
+  }
+  return { label: status || "Sin estado", className: "bg-slate-100 text-slate-700 ring-1 ring-slate-200" };
+}
 
 export function PropertyDetailPage() {
   const { slug } = useParams();
@@ -39,6 +55,10 @@ export function PropertyDetailPage() {
     }
     return uniquePropertyImages.filter((image) => image !== lotBoundaryImageUrl);
   }, [property?.imagenPrincipal, property?.imagenes, lotBoundaryImageUrl, useLotBoundaryAsCover]);
+  const status = getPublicStatusBadge(property?.estado);
+  const bedrooms = Number(property?.dormitorios || 0);
+  const baths = Number(property?.banos || 0);
+  const garages = Number(property?.cochera || 0);
 
   if (!property) {
     return (
@@ -114,15 +134,22 @@ export function PropertyDetailPage() {
             <p className="text-sm text-slate">{property.descripcionCorta}</p>
             <div className="grid grid-cols-2 gap-3 text-sm text-slate">
               <p>Superficie: {property.superficie} m2</p>
-              <p>Dormitorios: {property.dormitorios}</p>
-              <p>Banos: {property.banos}</p>
-              <p>Cochera: {property.cochera}</p>
-              <p className="col-span-2">Estado: {toTitle(property.estado)}</p>
+              {bedrooms > 0 ? <p>Dormitorios: {bedrooms}</p> : null}
+              {baths > 0 ? <p>Banos: {baths}</p> : null}
+              {garages > 0 ? <p>Cochera: {garages}</p> : null}
               {extraFeatures.map((item, index) => (
                 <p key={`${item.label}-${index}`} className="col-span-2">
                   {item.label}: {item.value}
                 </p>
               ))}
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] uppercase tracking-editorial text-slate">Estado</p>
+              <span
+                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${status.className}`}
+              >
+                {status.label}
+              </span>
             </div>
             <div className="grid gap-2">
               <a
