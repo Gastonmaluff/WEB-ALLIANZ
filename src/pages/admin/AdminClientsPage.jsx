@@ -320,6 +320,12 @@ export function AdminClientsPage() {
                             >
                               Editar
                             </Link>
+                            <Link
+                              to={`/admin/ventas/nueva?cliente=${client.id}`}
+                              className="inline-flex items-center justify-center border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:border-ink"
+                            >
+                              Iniciar venta
+                            </Link>
                           </div>
                         </article>
 

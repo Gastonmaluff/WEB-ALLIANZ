@@ -12,6 +12,9 @@ import { AdminDashboardPage } from "../pages/admin/AdminDashboardPage";
 import { AdminHeroPage } from "../pages/admin/AdminHeroPage";
 import { AdminClientsPage } from "../pages/admin/AdminClientsPage";
 import { AdminClientFormPage } from "../pages/admin/AdminClientFormPage";
+import { AdminCalendarPage } from "../pages/admin/AdminCalendarPage";
+import { AdminSalesPage } from "../pages/admin/AdminSalesPage";
+import { AdminSaleFormPage } from "../pages/admin/AdminSaleFormPage";
 import { AdminPropertiesPage } from "../pages/admin/AdminPropertiesPage";
 import { AdminPropertyFormPage } from "../pages/admin/AdminPropertyFormPage";
 import { AdminTestimonialsPage } from "../pages/admin/AdminTestimonialsPage";
@@ -48,6 +51,10 @@ export const appRouter = createBrowserRouter(
             { path: "clientes", element: <AdminClientsPage /> },
             { path: "clientes/nuevo", element: <AdminClientFormPage /> },
             { path: "clientes/:id/editar", element: <AdminClientFormPage /> },
+            { path: "calendario", element: <AdminCalendarPage /> },
+            { path: "ventas", element: <AdminSalesPage /> },
+            { path: "ventas/nueva", element: <AdminSaleFormPage /> },
+            { path: "ventas/:id/editar", element: <AdminSaleFormPage /> },
             { path: "propiedades", element: <AdminPropertiesPage /> },
             { path: "propiedades/nueva", element: <AdminPropertyFormPage /> },
             { path: "propiedades/:slug/editar", element: <AdminPropertyFormPage /> },

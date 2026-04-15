@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { MetricCard } from "../../components/admin/MetricCard";
+import { getCommercialEvents } from "../../content/commercialEventsContent";
 import { getClients } from "../../content/clientsContent";
+import { getSales } from "../../content/salesContent";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { MOCK_TESTIMONIALS } from "../../mocks/testimonials";
 import { ROUTES } from "../../router/paths";
@@ -47,6 +49,29 @@ const iconWarning = (
   </svg>
 );
 
+const iconBriefcase = (
+  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+    <path
+      d="M3 8h18v11H3V8Zm5 0V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const iconDocument = (
+  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+    <path
+      d="M7 3h7l5 5v13H7V3Zm7 1v4h4"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 function normalizeDate(value) {
   if (!value) return null;
   const [year, month, day] = String(value).split("-").map(Number);
@@ -72,6 +97,8 @@ export function AdminDashboardPage() {
     ["alquiler", "venta_o_alquiler"].includes(item.tipoOperacion)
   ).length;
   const clients = getClients();
+  const sales = getSales();
+  const commercialEvents = getCommercialEvents();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -82,6 +109,13 @@ export function AdminDashboardPage() {
   const overdue = clients.filter((client) => {
     const nextDate = normalizeDate(client.fechaProximoContacto);
     return nextDate ? nextDate < today : false;
+  }).length;
+  const totalSales = sales.length;
+  const closedSales = sales.filter((sale) => sale.estado === "cerrada").length;
+  const docsCount = sales.reduce((acc, sale) => acc + (sale.archivos?.length || 0), 0);
+  const todayCalendarEvents = commercialEvents.filter((event) => {
+    const eventDate = normalizeDate(event.date);
+    return eventDate ? isSameDay(eventDate, today) : false;
   }).length;
 
   return (
@@ -94,13 +128,15 @@ export function AdminDashboardPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-8">
         <MetricCard title="Total propiedades" value={total} icon={iconBuilding} hint="Stock general" />
         <MetricCard title="Disponibles" value={available} icon={iconCheck} accent="ink" hint="Publicables" />
         <MetricCard title="En portada" value={featured} icon={iconStar} hint="Home publica" />
         <MetricCard title="Alquileres" value={rents} icon={iconKey} accent="slate" hint="En renta" />
         <MetricCard title="Follow-up hoy" value={followUpToday} icon={iconAlarm} accent="ink" hint="Contactar hoy" />
         <MetricCard title="Atrasados" value={overdue} icon={iconWarning} hint="Prioridad alta" />
+        <MetricCard title="Ventas" value={totalSales} icon={iconBriefcase} accent="ink" hint={`${closedSales} cerradas`} />
+        <MetricCard title="Docs de ventas" value={docsCount} icon={iconDocument} hint={`${todayCalendarEvents} eventos hoy`} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
@@ -113,6 +149,20 @@ export function AdminDashboardPage() {
             >
               <p className="text-xs uppercase tracking-editorial text-slate">Seguimiento</p>
               <p className="mt-1.5 font-semibold text-ink">Clientes</p>
+            </Link>
+            <Link
+              to={ROUTES.adminCalendar}
+              className="border border-stone bg-surface px-4 py-3 text-sm transition hover:border-ink"
+            >
+              <p className="text-xs uppercase tracking-editorial text-slate">Agenda</p>
+              <p className="mt-1.5 font-semibold text-ink">Calendario comercial</p>
+            </Link>
+            <Link
+              to={ROUTES.adminSales}
+              className="border border-stone bg-surface px-4 py-3 text-sm transition hover:border-ink"
+            >
+              <p className="text-xs uppercase tracking-editorial text-slate">Operacion</p>
+              <p className="mt-1.5 font-semibold text-ink">Ventas y documentos</p>
             </Link>
             <Link
               to={ROUTES.adminPropertyNew}
@@ -163,6 +213,10 @@ export function AdminDashboardPage() {
               <span>Clientes totales</span>
               <strong className="text-ink">{clients.length}</strong>
             </li>
+            <li className="flex justify-between gap-3 border-b border-stone pb-2.5">
+              <span>Ventas cerradas</span>
+              <strong className="text-ink">{closedSales}</strong>
+            </li>
             <li className="flex justify-between gap-3">
               <span>Seguimientos pendientes</span>
               <strong className="text-ink">{followUpToday + overdue}</strong>
@@ -173,4 +227,3 @@ export function AdminDashboardPage() {
     </section>
   );
 }
-

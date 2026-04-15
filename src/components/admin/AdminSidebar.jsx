@@ -70,6 +70,34 @@ const commercialLinks = [
       </svg>
     ),
   },
+  {
+    to: ROUTES.adminCalendar,
+    label: "Calendario",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+        <path
+          d="M7 3v3m10-3v3M4 9h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    to: ROUTES.adminSales,
+    label: "Ventas",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+        <path
+          d="M4 18h16M7 18V9m5 9V6m5 12v-7"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
 ];
 
 export function AdminSidebar({ onNavigate, compact = false }) {
