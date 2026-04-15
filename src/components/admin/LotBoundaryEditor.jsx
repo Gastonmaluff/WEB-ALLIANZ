@@ -236,15 +236,11 @@ export function LotBoundaryEditor({
       <div className="relative overflow-hidden border border-stone bg-[#0A2032]">
         {imageUrl ? (
           <>
-            <img
-              src={imageUrl}
-              alt="Editor de delimitacion del lote"
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <img src={imageUrl} alt="Editor de delimitacion del lote" className="h-full w-full object-cover" />
             <svg
               viewBox="0 0 100 100"
-              preserveAspectRatio="xMidYMid slice"
-              className={`relative z-10 aspect-[16/10] w-full ${cursorClass}`}
+              preserveAspectRatio="none"
+              className={`absolute inset-0 z-10 h-full w-full ${cursorClass}`}
               onClick={addPoint}
               onPointerMove={onPointerMove}
               onPointerUp={endDrag}
@@ -371,4 +367,3 @@ export function LotBoundaryEditor({
     </div>
   );
 }
-
