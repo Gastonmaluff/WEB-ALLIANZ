@@ -14,6 +14,16 @@ function addDays(base, days) {
   return date;
 }
 
+function createGestion({ usuario, resultado, nota }) {
+  return {
+    id: `g-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+    usuario: usuario || "Administrador Allianz",
+    fecha: new Date().toISOString(),
+    resultado: String(resultado || "").trim(),
+    nota: String(nota || "").trim(),
+  };
+}
+
 function createDefaultClients() {
   const today = new Date();
   return [
@@ -26,6 +36,13 @@ function createDefaultClients() {
       estado: "negociacion",
       fechaUltimoContacto: toISODate(addDays(today, -2)),
       fechaProximoContacto: toISODate(today),
+      gestiones: [
+        createGestion({
+          usuario: "Administrador Allianz",
+          resultado: "interesado",
+          nota: "Pide propuesta formal esta semana.",
+        }),
+      ],
     },
     {
       id: "c-2",
@@ -36,6 +53,7 @@ function createDefaultClients() {
       estado: "visita agendada",
       fechaUltimoContacto: toISODate(addDays(today, -4)),
       fechaProximoContacto: toISODate(addDays(today, -1)),
+      gestiones: [],
     },
     {
       id: "c-3",
@@ -46,6 +64,7 @@ function createDefaultClients() {
       estado: "interesado",
       fechaUltimoContacto: toISODate(addDays(today, -1)),
       fechaProximoContacto: toISODate(addDays(today, 1)),
+      gestiones: [],
     },
     {
       id: "c-4",
@@ -56,6 +75,7 @@ function createDefaultClients() {
       estado: "contactado",
       fechaUltimoContacto: toISODate(today),
       fechaProximoContacto: toISODate(addDays(today, 3)),
+      gestiones: [],
     },
     {
       id: "c-5",
@@ -66,8 +86,19 @@ function createDefaultClients() {
       estado: "propuesta enviada",
       fechaUltimoContacto: toISODate(addDays(today, -5)),
       fechaProximoContacto: "",
+      gestiones: [],
     },
   ];
+}
+
+function normalizeGestion(item, index) {
+  return {
+    id: item?.id || `g-${Date.now()}-${index}`,
+    usuario: String(item?.usuario || "Administrador Allianz"),
+    fecha: String(item?.fecha || new Date().toISOString()),
+    resultado: String(item?.resultado || "").trim(),
+    nota: String(item?.nota || "").trim(),
+  };
 }
 
 function normalizeClient(item) {
@@ -82,6 +113,9 @@ function normalizeClient(item) {
     estado: String(item?.estado || emptyClient.estado),
     fechaUltimoContacto: String(item?.fechaUltimoContacto || ""),
     fechaProximoContacto: String(item?.fechaProximoContacto || ""),
+    gestiones: Array.isArray(item?.gestiones)
+      ? item.gestiones.map(normalizeGestion).sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+      : [],
   };
 }
 
@@ -120,5 +154,55 @@ export function upsertClient(client) {
     all.unshift({ ...normalized, id: normalized.id || `c-${Date.now()}` });
   }
   return saveClients(all);
+}
+
+export function updateClientNextContact(clientId, nextDate) {
+  const todayISO = toISODate(new Date());
+  const nextISO = nextDate ? toISODate(nextDate) : "";
+  const all = getClients().map((client) =>
+    client.id === clientId
+      ? {
+          ...client,
+          fechaUltimoContacto: todayISO,
+          fechaProximoContacto: nextISO,
+        }
+      : client
+  );
+  return saveClients(all);
+}
+
+function mapResultToStatus(result) {
+  const value = String(result || "").toLowerCase();
+  if (value === "interesado") return "interesado";
+  if (value === "quiere ver") return "visita agendada";
+  if (value === "no le interesa") return "cerrado";
+  return "contactado";
+}
+
+export function registerClientManagement({
+  clientId,
+  usuario,
+  resultado,
+  nota,
+  fechaProximoContacto,
+}) {
+  const all = getClients();
+  const nextISO = fechaProximoContacto ? toISODate(fechaProximoContacto) : "";
+  const todayISO = toISODate(new Date());
+  const updated = all.map((client) => {
+    if (client.id !== clientId) return client;
+    const gestiones = [
+      createGestion({ usuario, resultado, nota }),
+      ...(client.gestiones || []),
+    ];
+    return {
+      ...client,
+      estado: mapResultToStatus(resultado),
+      fechaUltimoContacto: todayISO,
+      fechaProximoContacto: nextISO || client.fechaProximoContacto,
+      gestiones,
+    };
+  });
+  return saveClients(updated);
 }
 

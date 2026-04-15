@@ -8,6 +8,12 @@ export const CLIENT_STATUS = [
 ];
 
 export const CLIENT_TYPES = ["comprador", "inversionista", "inquilino", "propietario"];
+export const MANAGEMENT_RESULTS = [
+  "no respondio",
+  "interesado",
+  "quiere ver",
+  "no le interesa",
+];
 
 export const emptyClient = {
   id: "",
@@ -18,5 +24,5 @@ export const emptyClient = {
   estado: "interesado",
   fechaUltimoContacto: "",
   fechaProximoContacto: "",
+  gestiones: [],
 };
-
