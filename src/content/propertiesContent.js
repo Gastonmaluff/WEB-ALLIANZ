@@ -11,21 +11,34 @@ let hasCloudSync = false;
 
 function normalizeLotOverlay(overlay, fallbackLabel = "", legacyBoundary = null) {
   const source = overlay || legacyBoundary || {};
+  const resolvedLabelName = String(
+    source?.label?.name || source?.labelTitle || source?.label || fallbackLabel || ""
+  ).trim();
+  const resolvedLabelSurface = String(
+    source?.label?.surface || source?.labelSubtitle || ""
+  ).trim();
+
   return {
     imageUrl: String(source?.imageUrl || "").trim(),
+    previewUrl: String(source?.previewUrl || "").trim(),
     points: normalizePolygonPoints(source?.points || []),
     closed: Boolean(source?.closed),
-    strokeColor: String(source?.strokeColor || "#7DD3FC"),
-    strokeWidth: Number(source?.strokeWidth || 0.75),
-    fillColor: String(source?.fillColor || "#50BEFF"),
+    strokeColor: String(source?.strokeColor || "#2B6D92"),
+    strokeWidth: Number(source?.strokeWidth || 1.8),
+    fillColor: String(source?.fillColor || "#2B6D92"),
     fillOpacity: Number(source?.fillOpacity ?? 0.18),
-    animationDuration: Number(source?.animationDuration || 1.35),
+    animationDuration: Number(source?.animationDuration || 1.8),
     animate: source?.animate !== false,
     animateOnView: source?.animateOnView !== false,
     animateOnce: source?.animateOnce !== false,
     showLabel: source?.showLabel !== false,
-    labelTitle: String(source?.labelTitle || source?.label || fallbackLabel || "").trim(),
-    labelSubtitle: String(source?.labelSubtitle || "").trim(),
+    label: {
+      name: resolvedLabelName,
+      surface: resolvedLabelSurface,
+    },
+    // Compatibilidad con estructura previa.
+    labelTitle: resolvedLabelName,
+    labelSubtitle: resolvedLabelSurface,
   };
 }
 

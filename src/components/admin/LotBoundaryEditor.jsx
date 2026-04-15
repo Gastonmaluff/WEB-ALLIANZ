@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { clampPercentage, normalizePolygonPoints, polygonPointsToString } from "../../utils/polygon";
 
 export const LOT_EDITOR_MODE = {
@@ -7,14 +7,26 @@ export const LOT_EDITOR_MODE = {
   delete: "delete",
 };
 
+const CLOSE_DISTANCE_THRESHOLD = 0.024;
+const DUPLICATE_POINT_THRESHOLD = 0.005;
+const QUICK_CLICK_GUARD_MS = 90;
+
 function getPointerCoordinates(event, currentTarget) {
   const rect = currentTarget.getBoundingClientRect();
-  const x = clampPercentage(((event.clientX - rect.left) / rect.width) * 100);
-  const y = clampPercentage(((event.clientY - rect.top) / rect.height) * 100);
+  if (!rect.width || !rect.height) return { x: 0, y: 0 };
+  const x = clampPercentage((event.clientX - rect.left) / rect.width);
+  const y = clampPercentage((event.clientY - rect.top) / rect.height);
   return {
-    x: Number(x.toFixed(2)),
-    y: Number(y.toFixed(2)),
+    x: Number(x.toFixed(4)),
+    y: Number(y.toFixed(4)),
   };
+}
+
+function distanceBetweenPoints(a, b) {
+  if (!a || !b) return Number.MAX_SAFE_INTEGER;
+  const deltaX = a.x - b.x;
+  const deltaY = a.y - b.y;
+  return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 }
 
 function ToolButton({ children, active = false, disabled = false, onClick }) {
@@ -38,9 +50,9 @@ export function LotBoundaryEditor({
   imageUrl,
   points = [],
   closed = false,
-  strokeColor = "#7DD3FC",
-  strokeWidth = 0.75,
-  fillColor = "#50BEFF",
+  strokeColor = "#2B6D92",
+  strokeWidth = 1.8,
+  fillColor = "#2B6D92",
   fillOpacity = 0.18,
   mode = LOT_EDITOR_MODE.add,
   onModeChange,
@@ -50,9 +62,13 @@ export function LotBoundaryEditor({
   onTogglePreview,
   previewVisible = true,
   isSaving = false,
+  isUploading = false,
 }) {
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
   const [draggingPointId, setDraggingPointId] = useState("");
+  const [selectedPointId, setSelectedPointId] = useState("");
+  const [pulsePointId, setPulsePointId] = useState("");
+  const lastAddTimestampRef = useRef(0);
 
   const updatePoints = (nextPoints, nextClosed = closed) => {
     onChange?.({
@@ -61,16 +77,50 @@ export function LotBoundaryEditor({
     });
   };
 
+  const closePolygonWithConfirmation = () => {
+    if (normalizedPoints.length < 3 || closed) return;
+    const confirmClose = window.confirm(
+      "Estas por cerrar el poligono. Luego podras reabrirlo si necesitas ajustar vertices. Continuar?"
+    );
+    if (!confirmClose) return;
+    updatePoints(normalizedPoints, true);
+  };
+
   const addPoint = (event) => {
     if (!imageUrl || closed || mode !== LOT_EDITOR_MODE.add) return;
+
+    const now = Date.now();
+    if (now - lastAddTimestampRef.current < QUICK_CLICK_GUARD_MS) return;
+    lastAddTimestampRef.current = now;
+
     const coords = getPointerCoordinates(event, event.currentTarget);
-    const next = [...normalizedPoints, { id: `pt-${Date.now()}`, ...coords }];
+    const firstPoint = normalizedPoints[0];
+
+    if (firstPoint && normalizedPoints.length >= 3) {
+      const nearStart = distanceBetweenPoints(coords, firstPoint) <= CLOSE_DISTANCE_THRESHOLD;
+      if (nearStart) {
+        closePolygonWithConfirmation();
+        return;
+      }
+    }
+
+    const lastPoint = normalizedPoints[normalizedPoints.length - 1];
+    if (lastPoint && distanceBetweenPoints(coords, lastPoint) <= DUPLICATE_POINT_THRESHOLD) {
+      return;
+    }
+
+    const pointId = `pt-${Date.now()}`;
+    const next = [...normalizedPoints, { id: pointId, ...coords }];
+    setSelectedPointId(pointId);
+    setPulsePointId(pointId);
+    window.setTimeout(() => setPulsePointId((current) => (current === pointId ? "" : current)), 260);
     updatePoints(next, false);
   };
 
   const startDrag = (pointId) => (event) => {
     if (mode !== LOT_EDITOR_MODE.move) return;
     event.stopPropagation();
+    setSelectedPointId(pointId);
     setDraggingPointId(pointId);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -88,32 +138,49 @@ export function LotBoundaryEditor({
     );
   };
 
-  const closePolygon = () => {
-    if (normalizedPoints.length < 3) return;
-    updatePoints(normalizedPoints, true);
-  };
-
   const reopenPolygon = () => {
     updatePoints(normalizedPoints, false);
   };
 
   const clearPolygon = () => {
+    if (!normalizedPoints.length) return;
+    const confirmReset = window.confirm("Se eliminara toda la delimitacion actual. Deseas continuar?");
+    if (!confirmReset) return;
+    setSelectedPointId("");
     updatePoints([], false);
   };
 
   const removePoint = (pointId) => {
     const next = normalizedPoints.filter((point) => point.id !== pointId);
+    setSelectedPointId((current) => (current === pointId ? "" : current));
     updatePoints(next, next.length > 2 && closed);
   };
 
-  const onPointClick = (pointId) => (event) => {
+  const removeLastPoint = () => {
+    if (!normalizedPoints.length) return;
+    const pointToRemove = normalizedPoints[normalizedPoints.length - 1];
+    removePoint(pointToRemove.id);
+  };
+
+  const onPointClick = (pointId, index) => (event) => {
     event.stopPropagation();
-    if (mode === LOT_EDITOR_MODE.delete) removePoint(pointId);
+    setSelectedPointId(pointId);
+
+    if (mode === LOT_EDITOR_MODE.delete) {
+      removePoint(pointId);
+      return;
+    }
+
+    const isFirst = index === 0;
+    if (mode === LOT_EDITOR_MODE.add && isFirst && normalizedPoints.length >= 3 && !closed) {
+      closePolygonWithConfirmation();
+    }
   };
 
   const updatePointValue = (pointId, axis, rawValue) => {
-    const numeric = clampPercentage(rawValue);
-    const value = Number(numeric.toFixed(2));
+    const numeric = clampPercentage(Number(rawValue) / 100);
+    const value = Number(numeric.toFixed(4));
+    setSelectedPointId(pointId);
     updatePoints(
       normalizedPoints.map((point) => (point.id === pointId ? { ...point, [axis]: value } : point)),
       closed
@@ -142,35 +209,47 @@ export function LotBoundaryEditor({
         <ToolButton active={mode === LOT_EDITOR_MODE.delete} onClick={() => onModeChange?.(LOT_EDITOR_MODE.delete)}>
           Eliminar punto
         </ToolButton>
-        <ToolButton onClick={closePolygon} disabled={closed || normalizedPoints.length < 3}>
+        <ToolButton onClick={closePolygonWithConfirmation} disabled={closed || normalizedPoints.length < 3}>
           Cerrar poligono
         </ToolButton>
         <ToolButton onClick={reopenPolygon} disabled={!closed}>
           Reabrir
         </ToolButton>
+        <ToolButton onClick={removeLastPoint} disabled={!normalizedPoints.length}>
+          Eliminar ultimo punto
+        </ToolButton>
         <ToolButton onClick={clearPolygon} disabled={!normalizedPoints.length}>
-          Reiniciar
+          Reiniciar delimitacion
         </ToolButton>
         <ToolButton onClick={onTogglePreview} active={previewVisible}>
           Vista previa
         </ToolButton>
-        <ToolButton onClick={onRequestSave} disabled={!imageUrl || isSaving}>
+        <ToolButton onClick={onRequestSave} disabled={!imageUrl || isSaving || isUploading}>
           {isSaving ? "Guardando..." : "Guardar delimitacion"}
         </ToolButton>
+      </div>
+
+      <div className="rounded-sm border border-stone bg-[#F6F8FA] px-3 py-2 text-[11px] uppercase tracking-editorial text-slate">
+        Click para agregar puntos. Arrastra para ajustar. Cierra el poligono tocando el punto inicial.
       </div>
 
       <div className="relative overflow-hidden border border-stone bg-[#0A2032]">
         {imageUrl ? (
           <>
-            <img src={imageUrl} alt="Editor de delimitacion del lote" className="h-full w-full object-cover" />
+            <img
+              src={imageUrl}
+              alt="Editor de delimitacion del lote"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
             <svg
               viewBox="0 0 100 100"
-              preserveAspectRatio="none"
-              className={`absolute inset-0 h-full w-full ${cursorClass}`}
+              preserveAspectRatio="xMidYMid slice"
+              className={`relative z-10 aspect-[16/10] w-full ${cursorClass}`}
               onClick={addPoint}
               onPointerMove={onPointerMove}
               onPointerUp={endDrag}
               onPointerLeave={endDrag}
+              onPointerCancel={endDrag}
             >
               {closed && normalizedPoints.length > 2 ? (
                 <polygon
@@ -180,6 +259,7 @@ export function LotBoundaryEditor({
                   stroke={strokeColor}
                   strokeWidth={strokeWidth}
                   strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
                 />
               ) : normalizedPoints.length > 1 ? (
                 <polyline
@@ -188,38 +268,65 @@ export function LotBoundaryEditor({
                   stroke={strokeColor}
                   strokeWidth={strokeWidth}
                   strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
                 />
               ) : null}
 
-              {normalizedPoints.map((point, index) => (
-                <g key={point.id}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="1.35"
-                    fill="#03121F"
-                    stroke="#E0F2FE"
-                    strokeWidth="0.35"
-                    className={pointCursor}
-                    onPointerDown={startDrag(point.id)}
-                    onClick={onPointClick(point.id)}
-                  />
-                  <text
-                    x={point.x + 1.6}
-                    y={point.y - 1.1}
-                    fill="#E0F2FE"
-                    fontSize="2.3"
-                    fontFamily="Manrope, sans-serif"
-                  >
-                    {index + 1}
-                  </text>
-                </g>
-              ))}
+              {normalizedPoints.map((point, index) => {
+                const isSelected = selectedPointId === point.id;
+                const isFirst = index === 0;
+                const isPulse = pulsePointId === point.id;
+                const cx = point.x * 100;
+                const cy = point.y * 100;
+
+                return (
+                  <g key={point.id}>
+                    {isPulse ? (
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r="1.8"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.9)"
+                        strokeWidth="0.35"
+                        vectorEffect="non-scaling-stroke"
+                        className="animate-ping"
+                      />
+                    ) : null}
+
+                    {isFirst ? (
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={isSelected ? "1.45" : "1.2"}
+                        fill="none"
+                        stroke="#EAF6FF"
+                        strokeWidth={isSelected ? "0.5" : "0.4"}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ) : null}
+
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={isSelected ? "1.06" : "0.88"}
+                      fill={isFirst ? "#D9EDF9" : "#0D2F44"}
+                      stroke={isSelected ? "#F0FAFF" : "#CBE7F8"}
+                      strokeWidth={isSelected ? "0.45" : "0.28"}
+                      vectorEffect="non-scaling-stroke"
+                      className={pointCursor}
+                      onPointerDown={startDrag(point.id)}
+                      onClick={onPointClick(point.id, index)}
+                    />
+                  </g>
+                );
+              })}
             </svg>
           </>
         ) : (
-          <div className="flex h-56 items-center justify-center px-5 text-center text-sm text-slate">
-            Carga una imagen para comenzar a marcar vertices del lote.
+          <div className="flex min-h-64 flex-col items-center justify-center gap-3 px-5 py-8 text-center text-sm text-slate">
+            <p>Carga una imagen para comenzar la delimitacion visual del lote.</p>
+            <ToolButton onClick={onRequestImageUpload}>Subir imagen aerea</ToolButton>
           </div>
         )}
       </div>
@@ -236,7 +343,7 @@ export function LotBoundaryEditor({
               min="0"
               max="100"
               step="0.01"
-              value={point.x}
+              value={Number((point.x * 100).toFixed(2))}
               onChange={(event) => updatePointValue(point.id, "x", event.target.value)}
               className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
               title="Coordenada X (%)"
@@ -246,7 +353,7 @@ export function LotBoundaryEditor({
               min="0"
               max="100"
               step="0.01"
-              value={point.y}
+              value={Number((point.y * 100).toFixed(2))}
               onChange={(event) => updatePointValue(point.id, "y", event.target.value)}
               className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
               title="Coordenada Y (%)"
@@ -264,3 +371,4 @@ export function LotBoundaryEditor({
     </div>
   );
 }
+

@@ -1,7 +1,17 @@
 export function clampPercentage(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
-  return Math.max(0, Math.min(100, numeric));
+  return Math.max(0, Math.min(1, numeric));
+}
+
+function normalizePointCoordinate(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  // Compatibilidad: puntos antiguos estaban en 0..100.
+  if (Math.abs(numeric) > 1) {
+    return numeric / 100;
+  }
+  return numeric;
 }
 
 export function normalizePolygonPoints(points) {
@@ -9,15 +19,15 @@ export function normalizePolygonPoints(points) {
   return points
     .map((point, index) => ({
       id: point?.id || `pt-${Date.now()}-${index}`,
-      x: clampPercentage(point?.x),
-      y: clampPercentage(point?.y),
+      x: clampPercentage(normalizePointCoordinate(point?.x)),
+      y: clampPercentage(normalizePointCoordinate(point?.y)),
     }))
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 }
 
 export function polygonPointsToString(points) {
   return normalizePolygonPoints(points)
-    .map((point) => `${point.x},${point.y}`)
+    .map((point) => `${point.x * 100},${point.y * 100}`)
     .join(" ");
 }
 
@@ -25,7 +35,7 @@ export function polygonPathD(points, closed = true) {
   const normalized = normalizePolygonPoints(points);
   if (!normalized.length) return "";
   const commands = normalized.map((point, index) =>
-    `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`
+    `${index === 0 ? "M" : "L"} ${point.x * 100} ${point.y * 100}`
   );
   if (closed && normalized.length > 2) commands.push("Z");
   return commands.join(" ");

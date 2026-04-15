@@ -7,8 +7,8 @@ export function LotBoundaryPublicOverlay({ overlay, className = "" }) {
       points={overlay?.points || []}
       closed={Boolean(overlay?.closed)}
       label={overlay?.label || ""}
-      labelTitle={overlay?.labelTitle || ""}
-      labelSubtitle={overlay?.labelSubtitle || ""}
+      labelTitle={overlay?.label?.name || overlay?.labelTitle || ""}
+      labelSubtitle={overlay?.label?.surface || overlay?.labelSubtitle || ""}
       showLabel={overlay?.showLabel !== false}
       strokeColor={overlay?.strokeColor}
       strokeWidth={overlay?.strokeWidth}
@@ -17,7 +17,7 @@ export function LotBoundaryPublicOverlay({ overlay, className = "" }) {
       animate={overlay?.animate !== false}
       animationDuration={overlay?.animationDuration}
       animateOnView={overlay?.animateOnView !== false}
-      animateOnce={overlay?.animateOnce !== false}
+      animateOnce={true}
       trigger={overlay?.animateOnView !== false ? "viewport" : "mount"}
       className={className}
     />
