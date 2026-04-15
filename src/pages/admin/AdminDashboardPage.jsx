@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { MetricCard } from "../../components/admin/MetricCard";
 import { getClients } from "../../content/clientsContent";
+import { getProperties } from "../../content/propertiesContent";
 import { getSales } from "../../content/salesContent";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { MOCK_TESTIMONIALS } from "../../mocks/testimonials";
 import { ROUTES } from "../../router/paths";
 
@@ -53,7 +53,7 @@ function isSameDay(a, b) {
 }
 
 export function AdminDashboardPage() {
-  const total = MOCK_PROPERTIES.length;
+  const total = getProperties().length;
   const clients = getClients();
   const sales = getSales();
 

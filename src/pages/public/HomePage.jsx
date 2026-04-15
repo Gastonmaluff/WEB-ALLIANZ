@@ -3,7 +3,7 @@ import { FeaturedPropertiesSection } from "../../components/public/FeaturedPrope
 import { PremiumZoneSection } from "../../components/public/PremiumZoneSection";
 import { TestimonialsSection } from "../../components/public/TestimonialsSection";
 import { ContactSection } from "../../components/public/ContactSection";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
+import { getProperties } from "../../content/propertiesContent";
 import { MOCK_TESTIMONIALS } from "../../mocks/testimonials";
 import { ROUTES } from "../../router/paths";
 
@@ -12,9 +12,10 @@ function isRentOperation(value) {
 }
 
 export function HomePage() {
-  const featuredProperties = MOCK_PROPERTIES.filter((item) => item.destacadaEnPortada).slice(0, 3);
-  const lotsProperties = MOCK_PROPERTIES.filter((item) => item.tipoPropiedad === "Lote").slice(0, 3);
-  const rentalProperties = MOCK_PROPERTIES.filter((item) => isRentOperation(item.tipoOperacion)).slice(0, 3);
+  const properties = getProperties();
+  const featuredProperties = properties.filter((item) => item.destacadaEnPortada).slice(0, 3);
+  const lotsProperties = properties.filter((item) => item.tipoPropiedad === "Lote").slice(0, 3);
+  const rentalProperties = properties.filter((item) => isRentOperation(item.tipoOperacion)).slice(0, 3);
 
   return (
     <>

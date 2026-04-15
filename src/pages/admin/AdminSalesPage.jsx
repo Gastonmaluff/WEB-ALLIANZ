@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { AppButton } from "../../components/common/AppButton";
+import { getProperties } from "../../content/propertiesContent";
 import { getSales } from "../../content/salesContent";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { ROUTES } from "../../router/paths";
 import { formatCurrency, toTitle } from "../../utils/format";
 
@@ -27,7 +27,7 @@ function formatShortDate(value) {
 
 export function AdminSalesPage() {
   const sales = getSales();
-  const propertyMap = new Map(MOCK_PROPERTIES.map((item) => [item.id, item.titulo]));
+  const propertyMap = new Map(getProperties().map((item) => [item.id, item.titulo]));
   const closedCount = sales.filter((sale) => sale.estado === "cerrada").length;
   const activeCount = sales.filter((sale) =>
     ["en negociacion", "reservada", "en documentacion"].includes(sale.estado)

@@ -2,6 +2,7 @@ export const PROPERTY_STATUS = ["disponible", "vendido", "alquilado", "reservado
 export const OPERATION_TYPES = ["venta", "alquiler", "venta_o_alquiler"];
 
 export const emptyProperty = {
+  id: "",
   titulo: "",
   slug: "",
   tipoOperacion: "venta",
@@ -23,5 +24,12 @@ export const emptyProperty = {
   imagenes: [],
   destacadaEnPortada: false,
   publicada: true,
+  loteDelimitacion: {
+    imageUrl: "",
+    points: [],
+    closed: false,
+    label: "",
+    showLabel: true,
+  },
   createdAt: new Date().toISOString(),
 };

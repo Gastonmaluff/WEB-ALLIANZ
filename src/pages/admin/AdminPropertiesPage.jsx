@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
+import { getProperties } from "../../content/propertiesContent";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
@@ -53,6 +53,8 @@ function ActionButton({ to, primary = false, children, external = false }) {
 }
 
 export function AdminPropertiesPage() {
+  const properties = getProperties();
+
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -79,7 +81,7 @@ export function AdminPropertiesPage() {
             </tr>
           </thead>
           <tbody>
-            {MOCK_PROPERTIES.map((property) => {
+            {properties.map((property) => {
               const status = getStatusBadge(property.estado);
               return (
                 <tr key={property.id} className="border-b border-stone/70 align-top last:border-b-0">
@@ -137,7 +139,7 @@ export function AdminPropertiesPage() {
       </div>
 
       <div className="grid gap-3 lg:hidden">
-        {MOCK_PROPERTIES.map((property) => {
+        {properties.map((property) => {
           const status = getStatusBadge(property.estado);
           return (
             <article key={`mobile-${property.id}`} className="admin-card p-4">

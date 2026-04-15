@@ -160,6 +160,20 @@ export const MOCK_PROPERTIES = [
     imagenes: [
       "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1400&q=80",
     ],
+    loteDelimitacion: {
+      imageUrl:
+        "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1800&q=80",
+      points: [
+        { id: "lp1-1", x: 23.4, y: 27.5 },
+        { id: "lp1-2", x: 66.8, y: 23.4 },
+        { id: "lp1-3", x: 75.9, y: 57.2 },
+        { id: "lp1-4", x: 56.8, y: 74.8 },
+        { id: "lp1-5", x: 21.5, y: 66.7 },
+      ],
+      closed: true,
+      label: "740 m2",
+      showLabel: true,
+    },
     destacadaEnPortada: false,
     createdAt: "2026-02-28T14:10:00.000Z",
   },
@@ -186,6 +200,19 @@ export const MOCK_PROPERTIES = [
     imagenes: [
       "https://images.unsplash.com/photo-1482192597420-4816e4f1f5b8?auto=format&fit=crop&w=1400&q=80",
     ],
+    loteDelimitacion: {
+      imageUrl:
+        "https://images.unsplash.com/photo-1482192597420-4816e4f1f5b8?auto=format&fit=crop&w=1800&q=80",
+      points: [
+        { id: "lp2-1", x: 31.2, y: 26.8 },
+        { id: "lp2-2", x: 69.9, y: 29.7 },
+        { id: "lp2-3", x: 72.3, y: 63.4 },
+        { id: "lp2-4", x: 34.8, y: 70.2 },
+      ],
+      closed: true,
+      label: "680 m2",
+      showLabel: true,
+    },
     destacadaEnPortada: false,
     createdAt: "2026-02-24T12:30:00.000Z",
   },
@@ -212,6 +239,20 @@ export const MOCK_PROPERTIES = [
     imagenes: [
       "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
     ],
+    loteDelimitacion: {
+      imageUrl:
+        "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1800&q=80",
+      points: [
+        { id: "lcs-1", x: 26.5, y: 31.2 },
+        { id: "lcs-2", x: 63.1, y: 28.1 },
+        { id: "lcs-3", x: 77.6, y: 51.9 },
+        { id: "lcs-4", x: 69.4, y: 77.3 },
+        { id: "lcs-5", x: 33.8, y: 71.5 },
+      ],
+      closed: true,
+      label: "810 m2",
+      showLabel: true,
+    },
     destacadaEnPortada: false,
     createdAt: "2026-02-18T08:20:00.000Z",
   },

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { SectionHeading } from "../../components/common/SectionHeading";
 import { PropertyCard } from "../../components/public/PropertyCard";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
+import { getProperties } from "../../content/propertiesContent";
 
 function isRentOperation(value) {
   return value === "alquiler" || value === "venta_o_alquiler";
@@ -12,9 +12,10 @@ export function PropertiesPage() {
   const [searchParams] = useSearchParams();
   const typeFilter = searchParams.get("tipo");
   const operationFilter = searchParams.get("operacion");
+  const properties = useMemo(() => getProperties(), []);
 
   const filteredProperties = useMemo(() => {
-    return MOCK_PROPERTIES.filter((property) => {
+    return properties.filter((property) => {
       if (typeFilter === "lote" && property.tipoPropiedad !== "Lote") return false;
       if (operationFilter === "alquiler" && !isRentOperation(property.tipoOperacion)) return false;
       if (operationFilter === "venta" && !["venta", "venta_o_alquiler"].includes(property.tipoOperacion)) {
@@ -22,7 +23,7 @@ export function PropertiesPage() {
       }
       return true;
     });
-  }, [operationFilter, typeFilter]);
+  }, [operationFilter, properties, typeFilter]);
 
   const heading = useMemo(() => {
     if (typeFilter === "lote") {

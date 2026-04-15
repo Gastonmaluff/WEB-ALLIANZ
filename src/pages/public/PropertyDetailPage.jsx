@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useMemo } from "react";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
+import { getProperties } from "../../content/propertiesContent";
 import {
   buildPropertyWhatsappUrl,
   formatCurrency,
@@ -10,10 +10,11 @@ import {
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { ImageSlider } from "../../components/common/ImageSlider";
+import { LotBoundaryOverlay } from "../../components/common/LotBoundaryOverlay";
 
 export function PropertyDetailPage() {
   const { slug } = useParams();
-  const property = MOCK_PROPERTIES.find((item) => item.slug === slug);
+  const property = getProperties().find((item) => item.slug === slug);
   const galleryImages = useMemo(() => {
     const fromProperty = [property?.imagenPrincipal, ...(property?.imagenes || [])];
     return [...new Set(fromProperty.filter(Boolean))];
@@ -25,6 +26,8 @@ export function PropertyDetailPage() {
   const extraFeatures = (property?.caracteristicasExtras || []).filter(
     (item) => item?.label && String(item.label).trim() && item?.value !== undefined && item?.value !== null && String(item.value).trim()
   );
+  const lotBoundary = property?.loteDelimitacion || {};
+  const isLotProperty = ["lote", "terreno"].includes(String(property?.tipoPropiedad || "").toLowerCase());
 
   if (!property) {
     return (
@@ -108,6 +111,30 @@ export function PropertyDetailPage() {
             </div>
           </div>
         </div>
+
+        {isLotProperty && lotBoundary?.imageUrl ? (
+          <article className="space-y-4">
+            <div>
+              <p className="text-xs uppercase tracking-editorial text-slate">Delimitacion visual</p>
+              <h2 className="font-display text-4xl leading-none text-ink md:text-5xl">
+                Lote sobre imagen aerea
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-slate">
+                El contorno animado identifica con precision la superficie de la fraccion publicada.
+              </p>
+            </div>
+            <LotBoundaryOverlay
+              imageUrl={lotBoundary.imageUrl}
+              points={lotBoundary.points}
+              closed={lotBoundary.closed}
+              label={lotBoundary.label || (property.superficie ? `${property.superficie} m2` : "")}
+              showLabel={lotBoundary.showLabel !== false}
+              animate
+              trigger="viewport"
+              className="aspect-[16/9]"
+            />
+          </article>
+        ) : null}
 
         {galleryImages.length > 1 ? (
           <div className="grid gap-4 md:grid-cols-2">

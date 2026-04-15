@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppButton } from "../../components/common/AppButton";
 import { getClients, upsertClient } from "../../content/clientsContent";
+import { getProperties } from "../../content/propertiesContent";
 import { getSaleById, upsertSale } from "../../content/salesContent";
 import { useAuthSession } from "../../hooks/useAuthSession";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
 import {
   emptySale,
   SALE_FILE_TYPES,
@@ -166,11 +166,11 @@ export function AdminSaleFormPage() {
   );
 
   const propertyOptions = useMemo(
-    () => MOCK_PROPERTIES.map((property) => ({ id: property.id, label: property.titulo })),
+    () => getProperties().map((property) => ({ id: property.id, label: property.titulo })),
     []
   );
   const propertyLabelMap = useMemo(
-    () => new Map(MOCK_PROPERTIES.map((property) => [property.id, property.titulo])),
+    () => new Map(getProperties().map((property) => [property.id, property.titulo])),
     []
   );
 

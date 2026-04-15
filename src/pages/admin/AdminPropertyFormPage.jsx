@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { LotBoundaryEditor } from "../../components/admin/LotBoundaryEditor";
 import { AppButton } from "../../components/common/AppButton";
+import { LotBoundaryOverlay } from "../../components/common/LotBoundaryOverlay";
+import { getPropertyBySlug, upsertProperty } from "../../content/propertiesContent";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
-import { MOCK_PROPERTIES } from "../../mocks/properties";
 import { ROUTES } from "../../router/paths";
 import { formatOperationLabel, slugify } from "../../utils/format";
+import { normalizePolygonPoints } from "../../utils/polygon";
 
 const propertyTypes = ["Casa", "Departamento", "Lote", "Terreno", "Oficina"];
 const currencies = ["USD", "PYG"];
@@ -26,6 +29,16 @@ function normalizeExtraFeatures(items) {
     .filter((item) => item.label && item.value);
 }
 
+function normalizeLotBoundary(boundary, fallbackLabel = "") {
+  return {
+    imageUrl: String(boundary?.imageUrl || "").trim(),
+    points: normalizePolygonPoints(boundary?.points || []),
+    closed: Boolean(boundary?.closed),
+    label: String(boundary?.label || fallbackLabel || "").trim(),
+    showLabel: boundary?.showLabel !== false,
+  };
+}
+
 function normalizeProperty(foundProperty) {
   if (!foundProperty) {
     return {
@@ -33,6 +46,7 @@ function normalizeProperty(foundProperty) {
       publicada: true,
       consultarPrecio: false,
       caracteristicasExtras: [],
+      loteDelimitacion: normalizeLotBoundary(null),
     };
   }
 
@@ -47,6 +61,10 @@ function normalizeProperty(foundProperty) {
     publicada: foundProperty.publicada ?? true,
     consultarPrecio: foundProperty.consultarPrecio ?? false,
     caracteristicasExtras: normalizeExtraFeatures(foundProperty.caracteristicasExtras),
+    loteDelimitacion: normalizeLotBoundary(
+      foundProperty.loteDelimitacion,
+      foundProperty.superficie ? `${foundProperty.superficie} m2` : ""
+    ),
   };
 }
 
@@ -94,20 +112,25 @@ function validateForm(form) {
   if (form.googleMapsUrl && !/^https?:\/\//i.test(form.googleMapsUrl.trim())) {
     errors.googleMapsUrl = "La URL debe iniciar con http:// o https://";
   }
+  const isLot = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
+  if (isLot && form.loteDelimitacion?.imageUrl && !/^https?:\/|^data:image\//i.test(form.loteDelimitacion.imageUrl)) {
+    errors.loteImageUrl = "La imagen aerea debe ser URL valida o archivo cargado.";
+  }
+  if (isLot && form.loteDelimitacion?.points?.length > 0 && form.loteDelimitacion.points.length < 3) {
+    errors.lotePoints = "El poligono necesita al menos 3 vertices.";
+  }
 
   return errors;
 }
 
 export function AdminPropertyFormPage() {
   const { slug } = useParams();
-  const editingProperty = useMemo(
-    () => MOCK_PROPERTIES.find((property) => property.slug === slug),
-    [slug]
-  );
+  const editingProperty = useMemo(() => (slug ? getPropertyBySlug(slug) : null), [slug]);
   const isEdit = Boolean(editingProperty);
 
   const [form, setForm] = useState(() => normalizeProperty(editingProperty));
   const [galleryInput, setGalleryInput] = useState("");
+  const [lotImageInput, setLotImageInput] = useState("");
   const [extraLabelInput, setExtraLabelInput] = useState("");
   const [extraValueInput, setExtraValueInput] = useState("");
   const [isExtraOpen, setIsExtraOpen] = useState(false);
@@ -120,6 +143,7 @@ export function AdminPropertyFormPage() {
     () => uniqueImages([form.imagenPrincipal, ...form.imagenes]),
     [form.imagenPrincipal, form.imagenes]
   );
+  const isLotProperty = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -194,6 +218,43 @@ export function AdminPropertyFormPage() {
     setForm((prev) => ({ ...prev, imagenes: nextImages }));
   };
 
+  const updateLotBoundary = (patch) => {
+    setForm((prev) => ({
+      ...prev,
+      loteDelimitacion: {
+        ...prev.loteDelimitacion,
+        ...patch,
+        points: normalizePolygonPoints(patch.points ?? prev.loteDelimitacion?.points ?? []),
+      },
+    }));
+    setErrors((prev) => ({ ...prev, loteImageUrl: "", lotePoints: "" }));
+    setSaveFeedback("");
+  };
+
+  const addLotImageUrl = () => {
+    const value = lotImageInput.trim();
+    if (!value) return;
+    updateLotBoundary({ imageUrl: value });
+    setLotImageInput("");
+  };
+
+  const removeLotImage = () => {
+    updateLotBoundary({ imageUrl: "", points: [], closed: false });
+  };
+
+  const handleLotImageFile = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        updateLotBoundary({ imageUrl: reader.result });
+      }
+    };
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
   const addExtraFeature = () => {
     const label = extraLabelInput.trim();
     const value = extraValueInput.trim();
@@ -238,6 +299,7 @@ export function AdminPropertyFormPage() {
 
     const payload = {
       ...form,
+      id: form.id || generatedSlug || `property-${Date.now()}`,
       slug: generatedSlug,
       imagenPrincipal: form.imagenPrincipal,
       imagenes: form.imagenes.filter((image) => image !== form.imagenPrincipal),
@@ -247,10 +309,11 @@ export function AdminPropertyFormPage() {
       dormitorios: Number(form.dormitorios),
       banos: Number(form.banos),
       cochera: Number(form.cochera),
+      loteDelimitacion: normalizeLotBoundary(form.loteDelimitacion, form.superficie ? `${form.superficie} m2` : ""),
     };
 
-    console.log("Payload listo para Firestore:", payload);
-    setSaveFeedback("Cambios guardados localmente. Listo para conectar Firestore.");
+    upsertProperty(payload);
+    setSaveFeedback("Propiedad guardada correctamente.");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -676,7 +739,98 @@ export function AdminPropertyFormPage() {
           </div>
         </FormSection>
 
-        <FormSection title="F. Visibilidad" description="Controla presencia en portada y publicacion general.">
+        {isLotProperty ? (
+          <FormSection
+            title="F. Delimitacion visual del lote"
+            description="Marca vertices manualmente sobre imagen aerea y guarda la delimitacion."
+          >
+            <div className="space-y-4">
+              <Field
+                label="Imagen aerea del lote"
+                name="lotImageUrl"
+                error={errors.loteImageUrl}
+                help="Puedes pegar una URL o cargar un archivo de imagen."
+              >
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="lotImageUrl"
+                    value={lotImageInput}
+                    onChange={(event) => setLotImageInput(event.target.value)}
+                    className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                    placeholder="https://..."
+                  />
+                  <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
+                    Usar URL
+                  </AppButton>
+                </div>
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:border-ink">
+                  Cargar archivo
+                  <input type="file" accept="image/*" className="hidden" onChange={handleLotImageFile} />
+                </label>
+              </Field>
+
+              <LotBoundaryEditor
+                imageUrl={form.loteDelimitacion?.imageUrl}
+                points={form.loteDelimitacion?.points || []}
+                closed={Boolean(form.loteDelimitacion?.closed)}
+                onChange={(next) => updateLotBoundary(next)}
+              />
+
+              {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field
+                  label="Etiqueta"
+                  name="lotBoundaryLabel"
+                  help="Opcional. Ejemplo: 810 m2"
+                >
+                  <input
+                    id="lotBoundaryLabel"
+                    value={form.loteDelimitacion?.label || ""}
+                    onChange={(event) => updateLotBoundary({ label: event.target.value })}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                    placeholder={`${form.superficie || 0} m2`}
+                  />
+                </Field>
+                <label className="inline-flex items-center gap-2 border border-stone bg-surface px-4 py-3 text-xs font-semibold uppercase tracking-editorial text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.loteDelimitacion?.showLabel !== false}
+                    onChange={(event) => updateLotBoundary({ showLabel: event.target.checked })}
+                    className="h-4 w-4 accent-[#041B2C]"
+                  />
+                  Mostrar etiqueta
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-editorial text-slate">Vista previa animada</p>
+                <LotBoundaryOverlay
+                  imageUrl={form.loteDelimitacion?.imageUrl}
+                  points={form.loteDelimitacion?.points || []}
+                  closed={Boolean(form.loteDelimitacion?.closed)}
+                  label={form.loteDelimitacion?.label || (form.superficie ? `${form.superficie} m2` : "")}
+                  showLabel={form.loteDelimitacion?.showLabel !== false}
+                  animate
+                  trigger="mount"
+                  className="aspect-[16/9]"
+                />
+              </div>
+
+              {form.loteDelimitacion?.imageUrl ? (
+                <button
+                  type="button"
+                  onClick={removeLotImage}
+                  className="inline-flex items-center justify-center border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
+                >
+                  Quitar imagen y delimitacion
+                </button>
+              ) : null}
+            </div>
+          </FormSection>
+        ) : null}
+
+        <FormSection title="G. Visibilidad" description="Controla presencia en portada y publicacion general.">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="flex items-start gap-3 border border-stone bg-surface p-4">
               <input
