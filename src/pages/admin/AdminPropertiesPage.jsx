@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { getProperties } from "../../content/propertiesContent";
+import { getProperties, removeProperty, subscribeProperties } from "../../content/propertiesContent";
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
@@ -30,30 +31,82 @@ function getStatusBadge(status) {
   };
 }
 
-function ActionButton({ to, primary = false, children, external = false }) {
-  const className = `inline-flex items-center justify-center gap-1.5 border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${
-    primary
-      ? "border-[#041B2C] bg-[#041B2C] text-white hover:bg-[#163649]"
-      : "border-stone bg-white text-ink hover:border-ink"
-  } whitespace-nowrap`;
+function ActionButton({
+  to,
+  primary = false,
+  danger = false,
+  children,
+  external = false,
+  className = "",
+  onClick,
+  disabled = false,
+}) {
+  const variantClassName = primary
+    ? "border-[#041B2C] bg-[#041B2C] text-white hover:bg-[#163649]"
+    : danger
+    ? "border-[#D8C4C7] bg-[#F8F3F4] text-[#6F3F45] hover:border-[#B99EA3] hover:bg-[#F2EAEC]"
+    : "border-stone bg-white text-ink hover:border-ink";
+  const resolvedClassName = `inline-flex items-center justify-center gap-1.5 border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName} ${className}`;
 
   if (external) {
     return (
-      <a href={to} className={className} target="_blank" rel="noreferrer">
+      <a href={to} className={resolvedClassName} target="_blank" rel="noreferrer">
         {children}
       </a>
     );
   }
 
+  if (!to) {
+    return (
+      <button type="button" onClick={onClick} className={resolvedClassName} disabled={disabled}>
+        {children}
+      </button>
+    );
+  }
+
   return (
-    <Link to={to} className={className}>
+    <Link to={to} className={resolvedClassName}>
       {children}
     </Link>
   );
 }
 
 export function AdminPropertiesPage() {
-  const properties = getProperties();
+  const [properties, setProperties] = useState(() => getProperties());
+  const [feedback, setFeedback] = useState(null);
+  const [deletingId, setDeletingId] = useState("");
+
+  useEffect(() => {
+    return subscribeProperties((items) => setProperties(items));
+  }, []);
+
+  const handleDeleteProperty = async (property) => {
+    const confirmed = window.confirm("¿Seguro que querés eliminar esta propiedad?");
+    if (!confirmed) return;
+
+    setDeletingId(property.id);
+    setFeedback(null);
+
+    const result = await removeProperty(property.id);
+    setDeletingId("");
+
+    if (!result.ok) {
+      const suffix =
+        result.reason === "has_relations"
+          ? " Elimina o reasigna esas ventas desde el modulo Ventas antes de continuar."
+          : "";
+      setFeedback({
+        type: "error",
+        message: `${result.message}${suffix}`,
+      });
+      return;
+    }
+
+    setFeedback({
+      type: result.synced === false ? "warning" : "success",
+      message: result.message,
+    });
+  };
 
   return (
     <section className="space-y-5">
@@ -67,6 +120,20 @@ export function AdminPropertiesPage() {
         </div>
         <AppButton to={ROUTES.adminPropertyNew}>Nueva propiedad</AppButton>
       </header>
+
+      {feedback ? (
+        <div
+          className={`border px-4 py-3 text-sm ${
+            feedback.type === "error"
+              ? "border-[#D8C4C7] bg-[#F8F3F4] text-[#6F3F45]"
+              : feedback.type === "warning"
+              ? "border-[#D6C8A8] bg-[#F8F4EA] text-[#6A5530]"
+              : "border-[#B9D8CA] bg-[#EEF7F2] text-[#2D6249]"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      ) : null}
 
       <div className="hidden overflow-hidden border-fine bg-paper lg:block">
         <table className="min-w-full text-left text-sm">
@@ -116,13 +183,25 @@ export function AdminPropertiesPage() {
                   </td>
                   <td className="px-4 py-4">{property.destacadaEnPortada ? "Si" : "No"}</td>
                   <td className="w-[290px] px-4 py-4">
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
-                        <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
-                          <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
-                        </svg>
-                        Editar
-                      </ActionButton>
+                    <div className="flex items-center gap-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                            <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
+                          </svg>
+                          Editar
+                        </ActionButton>
+                        <ActionButton
+                          danger
+                          onClick={() => handleDeleteProperty(property)}
+                          disabled={deletingId === property.id}
+                        >
+                          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                            <path d="M5 6h10M8 6V4h4v2m-5 0v9m3-9v9m3-9v9" stroke="currentColor" strokeWidth="1.3" />
+                          </svg>
+                          {deletingId === property.id ? "Eliminando..." : "Eliminar"}
+                        </ActionButton>
+                      </div>
                       <ActionButton to={`/propiedades/${property.slug}`}>
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="M3 10h14M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" stroke="currentColor" strokeWidth="1.3" />
@@ -172,14 +251,24 @@ export function AdminPropertiesPage() {
                 <p className="mb-3 text-[11px] uppercase tracking-editorial text-slate">
                   {property.destacadaEnPortada ? "En portada" : "Sin portada"}
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
                     <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                       <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
                     </svg>
                     Editar
                   </ActionButton>
-                  <ActionButton to={`/propiedades/${property.slug}`}>
+                  <ActionButton
+                    danger
+                    onClick={() => handleDeleteProperty(property)}
+                    disabled={deletingId === property.id}
+                  >
+                    <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                      <path d="M5 6h10M8 6V4h4v2m-5 0v9m3-9v9m3-9v9" stroke="currentColor" strokeWidth="1.3" />
+                    </svg>
+                    {deletingId === property.id ? "Eliminando..." : "Eliminar"}
+                  </ActionButton>
+                  <ActionButton to={`/propiedades/${property.slug}`} className="col-span-2 sm:col-span-1">
                     <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                       <path d="M3 10h14M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" stroke="currentColor" strokeWidth="1.3" />
                     </svg>

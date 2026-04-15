@@ -2,9 +2,10 @@ import { emptyProperty } from "../models/propertyModel";
 import { MOCK_PROPERTIES } from "../mocks/properties";
 import { normalizePolygonPoints } from "../utils/polygon";
 import { slugify } from "../utils/format";
-import { fetchProperties, upsertPropertyById } from "../firebase/firestore";
+import { fetchProperties, upsertPropertyById, deleteProperty as deletePropertyById } from "../firebase/firestore";
 
 const PROPERTIES_STORAGE_KEY = "allianz.properties.v1";
+const SALES_STORAGE_KEY = "allianz.sales.v1";
 const listeners = new Set();
 let syncingPromise = null;
 let hasCloudSync = false;
@@ -160,4 +161,63 @@ export async function upsertProperty(property) {
     // fallback local already done
   }
   return saved;
+}
+
+function getStoredSalesRelations() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(SALES_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+export async function removeProperty(identifier) {
+  const all = getProperties();
+  const target = all.find((item) => item.id === identifier || item.slug === identifier);
+  if (!target) {
+    return {
+      ok: false,
+      reason: "not_found",
+      message: "La propiedad no existe o ya fue eliminada.",
+    };
+  }
+
+  const relatedSales = getStoredSalesRelations().filter(
+    (sale) => sale.propertyId === target.id || sale.propertyId === target.slug
+  );
+  if (relatedSales.length > 0) {
+    return {
+      ok: false,
+      reason: "has_relations",
+      relatedCount: relatedSales.length,
+      message:
+        relatedSales.length === 1
+          ? "No se puede eliminar: la propiedad tiene 1 venta relacionada."
+          : `No se puede eliminar: la propiedad tiene ${relatedSales.length} ventas relacionadas.`,
+    };
+  }
+
+  const next = all.filter((item) => item.id !== target.id);
+  saveProperties(next);
+
+  try {
+    await deletePropertyById(target.id);
+    return {
+      ok: true,
+      synced: true,
+      message: "Propiedad eliminada correctamente.",
+    };
+  } catch {
+    return {
+      ok: true,
+      synced: false,
+      message:
+        "Se elimino localmente, pero no se pudo sincronizar la eliminacion en Firestore.",
+    };
+  }
 }
