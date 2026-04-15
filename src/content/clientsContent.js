@@ -108,6 +108,8 @@ function normalizeClient(item) {
     id: item?.id || `c-${Date.now()}`,
     nombre: String(item?.nombre || "").trim(),
     telefono: String(item?.telefono || "").replace(/\s+/g, ""),
+    email: String(item?.email || "").trim(),
+    documento: String(item?.documento || "").trim(),
     tipoCliente: String(item?.tipoCliente || emptyClient.tipoCliente),
     propiedadInteres: String(item?.propiedadInteres || "").trim(),
     estado: String(item?.estado || emptyClient.estado),
@@ -205,4 +207,3 @@ export function registerClientManagement({
   });
   return saveClients(updated);
 }
-

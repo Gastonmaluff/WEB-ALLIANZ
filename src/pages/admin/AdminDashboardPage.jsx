@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { MetricCard } from "../../components/admin/MetricCard";
-import { getCommercialEvents } from "../../content/commercialEventsContent";
 import { getClients } from "../../content/clientsContent";
 import { getSales } from "../../content/salesContent";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
@@ -10,30 +9,6 @@ import { ROUTES } from "../../router/paths";
 const iconBuilding = (
   <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
     <path d="M4 21V5h16v16M9 21v-4h6v4M8 9h2m4 0h2m-8 4h2m4 0h2" stroke="currentColor" strokeWidth="1.5" />
-  </svg>
-);
-
-const iconCheck = (
-  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.4" />
-  </svg>
-);
-
-const iconStar = (
-  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path
-      d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.4l6.1-.9L12 3Z"
-      stroke="currentColor"
-      strokeWidth="1.4"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const iconKey = (
-  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path d="M14 8a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM10 11l8 8m-2-2 2-2m-4 0 2-2" stroke="currentColor" strokeWidth="1.5" />
   </svg>
 );
 
@@ -60,18 +35,6 @@ const iconBriefcase = (
   </svg>
 );
 
-const iconDocument = (
-  <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-    <path
-      d="M7 3h7l5 5v13H7V3Zm7 1v4h4"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 function normalizeDate(value) {
   if (!value) return null;
   const [year, month, day] = String(value).split("-").map(Number);
@@ -91,14 +54,8 @@ function isSameDay(a, b) {
 
 export function AdminDashboardPage() {
   const total = MOCK_PROPERTIES.length;
-  const available = MOCK_PROPERTIES.filter((item) => item.estado === "disponible").length;
-  const featured = MOCK_PROPERTIES.filter((item) => item.destacadaEnPortada).length;
-  const rents = MOCK_PROPERTIES.filter((item) =>
-    ["alquiler", "venta_o_alquiler"].includes(item.tipoOperacion)
-  ).length;
   const clients = getClients();
   const sales = getSales();
-  const commercialEvents = getCommercialEvents();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -110,13 +67,7 @@ export function AdminDashboardPage() {
     const nextDate = normalizeDate(client.fechaProximoContacto);
     return nextDate ? nextDate < today : false;
   }).length;
-  const totalSales = sales.length;
   const closedSales = sales.filter((sale) => sale.estado === "cerrada").length;
-  const docsCount = sales.reduce((acc, sale) => acc + (sale.archivos?.length || 0), 0);
-  const todayCalendarEvents = commercialEvents.filter((event) => {
-    const eventDate = normalizeDate(event.date);
-    return eventDate ? isSameDay(eventDate, today) : false;
-  }).length;
 
   return (
     <section className="space-y-6">
@@ -128,15 +79,11 @@ export function AdminDashboardPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <MetricCard title="Total propiedades" value={total} icon={iconBuilding} hint="Stock general" />
-        <MetricCard title="Disponibles" value={available} icon={iconCheck} accent="ink" hint="Publicables" />
-        <MetricCard title="En portada" value={featured} icon={iconStar} hint="Home publica" />
-        <MetricCard title="Alquileres" value={rents} icon={iconKey} accent="slate" hint="En renta" />
         <MetricCard title="Follow-up hoy" value={followUpToday} icon={iconAlarm} accent="ink" hint="Contactar hoy" />
         <MetricCard title="Atrasados" value={overdue} icon={iconWarning} hint="Prioridad alta" />
-        <MetricCard title="Ventas" value={totalSales} icon={iconBriefcase} accent="ink" hint={`${closedSales} cerradas`} />
-        <MetricCard title="Docs de ventas" value={docsCount} icon={iconDocument} hint={`${todayCalendarEvents} eventos hoy`} />
+        <MetricCard title="Ventas cerradas" value={closedSales} icon={iconBriefcase} accent="ink" hint="Operaciones concretadas" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">

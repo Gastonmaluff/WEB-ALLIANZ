@@ -19,6 +19,8 @@ export const emptyClient = {
   id: "",
   nombre: "",
   telefono: "",
+  email: "",
+  documento: "",
   tipoCliente: "comprador",
   propiedadInteres: "",
   estado: "interesado",

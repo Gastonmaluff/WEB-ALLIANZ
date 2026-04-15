@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppButton } from "../../components/common/AppButton";
-import { getClients } from "../../content/clientsContent";
+import { getClients, upsertClient } from "../../content/clientsContent";
 import { getSaleById, upsertSale } from "../../content/salesContent";
 import { useAuthSession } from "../../hooks/useAuthSession";
 import { MOCK_PROPERTIES } from "../../mocks/properties";
@@ -16,6 +16,11 @@ import {
 } from "../../models/saleModel";
 import { ROUTES } from "../../router/paths";
 import { formatCurrency, toTitle } from "../../utils/format";
+
+const CLIENT_MODE = {
+  existing: "existing",
+  new: "new",
+};
 
 function normalizeNumeric(value) {
   if (value === "" || value === null || value === undefined) return 0;
@@ -36,9 +41,14 @@ function normalizeForm(base) {
   };
 }
 
-function validateForm(form) {
+function validateForm(form, clientMode, manualClient) {
   const errors = {};
-  if (!form.clientId) errors.clientId = "Selecciona cliente.";
+  if (clientMode === CLIENT_MODE.existing) {
+    if (!form.clientId) errors.clientId = "Selecciona cliente.";
+  } else {
+    if (!manualClient.nombre.trim()) errors.manualNombre = "Ingresa nombre y apellido.";
+    if (!manualClient.telefono.trim()) errors.manualTelefono = "Ingresa telefono.";
+  }
   if (!form.vendedorResponsable.trim()) errors.vendedorResponsable = "Ingresa vendedor responsable.";
   if (!form.fechaVenta) errors.fechaVenta = "Ingresa fecha de venta.";
   if (!form.tipoInmueble) errors.tipoInmueble = "Selecciona tipo de inmueble.";
@@ -88,6 +98,32 @@ function Field({ label, name, error, required = false, children, help }) {
   );
 }
 
+function getDefaultManualClient(existingSale) {
+  if (!existingSale || existingSale.clientId) {
+    return {
+      nombre: "",
+      telefono: "",
+      email: "",
+      documento: "",
+      saveToClients: false,
+    };
+  }
+
+  return {
+    nombre: existingSale.clienteNombre || "",
+    telefono: existingSale.clienteTelefono || "",
+    email: existingSale.clienteEmail || "",
+    documento: existingSale.clienteDocumento || "",
+    saveToClients: false,
+  };
+}
+
+function getClientMode(existingSale, initialClient) {
+  if (existingSale) return existingSale.clientId ? CLIENT_MODE.existing : CLIENT_MODE.new;
+  if (initialClient) return CLIENT_MODE.existing;
+  return CLIENT_MODE.new;
+}
+
 export function AdminSaleFormPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -106,11 +142,16 @@ export function AdminSaleFormPage() {
         ...emptySale,
         clientId: initialClient?.id || "",
         clienteNombre: initialClient?.nombre || "",
+        clienteTelefono: initialClient?.telefono || "",
+        clienteEmail: initialClient?.email || "",
+        clienteDocumento: initialClient?.documento || "",
         propertyManual: initialClient?.propiedadInteres || "",
         vendedorResponsable: user?.displayName || user?.email || "Administrador Allianz",
       }
     )
   );
+  const [clientMode, setClientMode] = useState(() => getClientMode(existingSale, initialClient));
+  const [manualClient, setManualClient] = useState(() => getDefaultManualClient(existingSale));
   const [errors, setErrors] = useState({});
   const [feedback, setFeedback] = useState("");
   const [newFile, setNewFile] = useState({
@@ -126,6 +167,10 @@ export function AdminSaleFormPage() {
 
   const propertyOptions = useMemo(
     () => MOCK_PROPERTIES.map((property) => ({ id: property.id, label: property.titulo })),
+    []
+  );
+  const propertyLabelMap = useMemo(
+    () => new Map(MOCK_PROPERTIES.map((property) => [property.id, property.titulo])),
     []
   );
 
@@ -145,12 +190,37 @@ export function AdminSaleFormPage() {
         ...prev,
         clientId: value,
         clienteNombre: selected?.nombre || "",
-        propertyManual: prev.origenVenta === "externo" ? selected?.propiedadInteres || prev.propertyManual : prev.propertyManual,
+        clienteTelefono: selected?.telefono || "",
+        clienteEmail: selected?.email || "",
+        clienteDocumento: selected?.documento || "",
+        propertyManual:
+          prev.origenVenta === "externo" ? selected?.propiedadInteres || prev.propertyManual : prev.propertyManual,
       }));
       return;
     }
 
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleManualClientChange = (event) => {
+    const { name, value, type, checked } = event.target;
+    setFeedback("");
+    setErrors((prev) => ({ ...prev, [`manual${name.charAt(0).toUpperCase()}${name.slice(1)}`]: "" }));
+    setManualClient((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const handleClientModeChange = (mode) => {
+    setClientMode(mode);
+    setFeedback("");
+    setErrors((prev) => ({
+      ...prev,
+      clientId: "",
+      manualNombre: "",
+      manualTelefono: "",
+    }));
   };
 
   const addFile = () => {
@@ -186,7 +256,7 @@ export function AdminSaleFormPage() {
 
   const onSubmit = (event) => {
     event.preventDefault();
-    const validationErrors = validateForm(form);
+    const validationErrors = validateForm(form, clientMode, manualClient);
     setErrors(validationErrors);
     if (Object.keys(validationErrors).length) {
       setFeedback("Revisa los campos marcados antes de guardar.");
@@ -194,10 +264,56 @@ export function AdminSaleFormPage() {
     }
 
     const actor = user?.displayName || user?.email || "Administrador Allianz";
+    const nowDate = new Date();
+    const nowISO = nowDate.toISOString().slice(0, 10);
+    const interestFromSale =
+      form.origenVenta === "web" ? propertyLabelMap.get(form.propertyId) || "" : form.propertyManual;
+
+    let resolvedClientId = form.clientId;
+    let resolvedClientName = selectedClient?.nombre || form.clienteNombre;
+    let resolvedClientPhone = selectedClient?.telefono || form.clienteTelefono;
+    let resolvedClientEmail = selectedClient?.email || form.clienteEmail;
+    let resolvedClientDocument = selectedClient?.documento || form.clienteDocumento;
+
+    if (clientMode === CLIENT_MODE.new) {
+      const manualName = manualClient.nombre.trim();
+      const manualPhone = manualClient.telefono.trim();
+      const manualEmail = manualClient.email.trim();
+      const manualDocument = manualClient.documento.trim();
+
+      resolvedClientId = "";
+      resolvedClientName = manualName;
+      resolvedClientPhone = manualPhone;
+      resolvedClientEmail = manualEmail;
+      resolvedClientDocument = manualDocument;
+
+      if (manualClient.saveToClients) {
+        const newClientId = `c-${Date.now()}`;
+        upsertClient({
+          id: newClientId,
+          nombre: manualName,
+          telefono: manualPhone,
+          email: manualEmail,
+          documento: manualDocument,
+          tipoCliente: "comprador",
+          propiedadInteres: interestFromSale,
+          estado: "interesado",
+          fechaUltimoContacto: nowISO,
+          fechaProximoContacto: form.fechaVenta || nowISO,
+          gestiones: [],
+        });
+        resolvedClientId = newClientId;
+      }
+    }
+
     const payload = {
       ...form,
       id: isEdit ? form.id : `s-${Date.now()}`,
-      clienteNombre: selectedClient?.nombre || form.clienteNombre,
+      clientId: resolvedClientId,
+      clienteNombre: resolvedClientName,
+      clienteTelefono: resolvedClientPhone,
+      clienteEmail: resolvedClientEmail,
+      clienteDocumento: resolvedClientDocument,
       precioVenta: normalizeNumeric(form.precioVenta),
       senia: normalizeNumeric(form.senia),
       saldoRestante: normalizeNumeric(form.saldoRestante),
@@ -244,24 +360,115 @@ export function AdminSaleFormPage() {
           title="A. Operacion"
           description="Relaciona cliente, vendedor y origen de la venta."
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Cliente" name="clientId" required error={errors.clientId}>
-              <select
-                id="clientId"
-                name="clientId"
-                value={form.clientId}
-                onChange={handleChange}
-                className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-sm border border-stone bg-surface p-1">
+              <button
+                type="button"
+                onClick={() => handleClientModeChange(CLIENT_MODE.existing)}
+                className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${
+                  clientMode === CLIENT_MODE.existing ? "bg-[#041B2C] text-white" : "text-ink hover:bg-white"
+                }`}
               >
-                <option value="">Selecciona cliente</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.nombre}
-                  </option>
-                ))}
-              </select>
-            </Field>
+                Cliente existente
+              </button>
+              <button
+                type="button"
+                onClick={() => handleClientModeChange(CLIENT_MODE.new)}
+                className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${
+                  clientMode === CLIENT_MODE.new ? "bg-[#041B2C] text-white" : "text-ink hover:bg-white"
+                }`}
+              >
+                Nuevo cliente
+              </button>
+            </div>
 
+            {clientMode === CLIENT_MODE.existing ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Cliente" name="clientId" required error={errors.clientId}>
+                  <select
+                    id="clientId"
+                    name="clientId"
+                    value={form.clientId}
+                    onChange={handleChange}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                  >
+                    <option value="">Selecciona cliente</option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <div className="rounded-sm border border-[#163649]/20 bg-[#F4F7F9] px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-editorial text-slate">Detalle cliente</p>
+                  <p className="mt-1 text-sm font-semibold text-ink">
+                    {selectedClient?.nombre || "Selecciona un cliente"}
+                  </p>
+                  <p className="text-xs text-slate">
+                    {selectedClient?.telefono || "-"}
+                    {selectedClient?.email ? ` · ${selectedClient.email}` : ""}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Nombre y apellido" name="manualNombre" required error={errors.manualNombre}>
+                  <input
+                    id="manualNombre"
+                    name="nombre"
+                    value={manualClient.nombre}
+                    onChange={handleManualClientChange}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                  />
+                </Field>
+
+                <Field label="Telefono" name="manualTelefono" required error={errors.manualTelefono}>
+                  <input
+                    id="manualTelefono"
+                    name="telefono"
+                    value={manualClient.telefono}
+                    onChange={handleManualClientChange}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                  />
+                </Field>
+
+                <Field label="Email (opcional)" name="manualEmail">
+                  <input
+                    id="manualEmail"
+                    name="email"
+                    value={manualClient.email}
+                    onChange={handleManualClientChange}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                  />
+                </Field>
+
+                <Field label="Documento (opcional)" name="manualDocumento">
+                  <input
+                    id="manualDocumento"
+                    name="documento"
+                    value={manualClient.documento}
+                    onChange={handleManualClientChange}
+                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                  />
+                </Field>
+
+                <label className="md:col-span-2 inline-flex items-center gap-2 rounded-sm border border-stone bg-surface px-4 py-3 text-xs font-semibold uppercase tracking-editorial text-ink">
+                  <input
+                    type="checkbox"
+                    name="saveToClients"
+                    checked={Boolean(manualClient.saveToClients)}
+                    onChange={handleManualClientChange}
+                    className="h-4 w-4 accent-[#041B2C]"
+                  />
+                  Guardar tambien este cliente en el modulo de Clientes
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Vendedor responsable" name="vendedorResponsable" required error={errors.vendedorResponsable}>
               <input
                 id="vendedorResponsable"

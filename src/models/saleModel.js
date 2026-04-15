@@ -22,6 +22,9 @@ export const emptySale = {
   id: "",
   clientId: "",
   clienteNombre: "",
+  clienteTelefono: "",
+  clienteEmail: "",
+  clienteDocumento: "",
   vendedorResponsable: "",
   fechaVenta: "",
   tipoInmueble: "lote",
@@ -45,4 +48,3 @@ export const emptySale = {
   createdBy: "",
   updatedBy: "",
 };
-
