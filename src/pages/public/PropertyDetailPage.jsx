@@ -30,6 +30,15 @@ export function PropertyDetailPage() {
   const lotBoundaryImageUrl = lotBoundary?.imageUrl || property?.imagenPrincipal || "";
   const hasLotBoundaryPoints = (lotBoundary?.points || []).length > 2;
   const lotBoundaryEnabled = lotBoundary?.enabled === undefined ? hasLotBoundaryPoints : Boolean(lotBoundary?.enabled);
+  const useLotBoundaryAsCover = lotBoundaryEnabled && lotBoundaryImageUrl && hasLotBoundaryPoints;
+  const secondaryGalleryImages = useMemo(() => {
+    const propertyImages = [property?.imagenPrincipal, ...(property?.imagenes || [])];
+    const uniquePropertyImages = [...new Set(propertyImages.filter(Boolean))];
+    if (!useLotBoundaryAsCover) {
+      return uniquePropertyImages.slice(1);
+    }
+    return uniquePropertyImages.filter((image) => image !== lotBoundaryImageUrl);
+  }, [property?.imagenPrincipal, property?.imagenes, lotBoundaryImageUrl, useLotBoundaryAsCover]);
 
   if (!property) {
     return (
@@ -61,15 +70,32 @@ export function PropertyDetailPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
-          <ImageSlider
-            images={galleryImages}
-            altPrefix={`Galeria ${property.titulo}`}
-            tone="light"
-            autoPlayMs={0}
-            showArrows={galleryImages.length > 1}
-            showIndicators={galleryImages.length > 1}
-            containerClassName="h-[420px] border-fine lg:col-span-2 lg:h-[560px]"
-          />
+          {useLotBoundaryAsCover ? (
+            <LotBoundaryPublicOverlay
+              overlay={{
+                ...lotBoundary,
+                imageUrl: lotBoundaryImageUrl,
+                animate: true,
+                labelTitle: lotBoundary?.labelTitle || property?.titulo || "Lote",
+                labelSubtitle: lotBoundary?.labelSubtitle || (property?.superficie ? `${property.superficie} m2` : ""),
+              }}
+              className="h-[420px] border-fine lg:col-span-2 lg:h-[560px]"
+              trigger="mount"
+              animateOnView={false}
+              animateOnce={false}
+              replayIntervalMs={7000}
+            />
+          ) : (
+            <ImageSlider
+              images={galleryImages}
+              altPrefix={`Galeria ${property.titulo}`}
+              tone="light"
+              autoPlayMs={0}
+              showArrows={galleryImages.length > 1}
+              showIndicators={galleryImages.length > 1}
+              containerClassName="h-[420px] border-fine lg:col-span-2 lg:h-[560px]"
+            />
+          )}
           <div className="space-y-4 border-fine bg-paper p-6">
             {property.consultarPrecio ? (
               <a
@@ -114,31 +140,9 @@ export function PropertyDetailPage() {
           </div>
         </div>
 
-        {lotBoundaryEnabled && lotBoundaryImageUrl && hasLotBoundaryPoints ? (
-          <article className="space-y-4">
-            <div>
-              <p className="text-xs uppercase tracking-editorial text-slate">Delimitacion visual</p>
-              <h2 className="font-display text-4xl leading-none text-ink md:text-5xl">
-                Lote sobre imagen aerea
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm text-slate">
-                El contorno animado identifica con precision la superficie de la fraccion publicada.
-              </p>
-            </div>
-            <LotBoundaryPublicOverlay
-              overlay={{
-                ...lotBoundary,
-                imageUrl: lotBoundaryImageUrl,
-                labelTitle: lotBoundary?.labelTitle || (property.superficie ? `${property.superficie} m2` : ""),
-              }}
-              className="aspect-[4/3] md:aspect-[16/9]"
-            />
-          </article>
-        ) : null}
-
-        {galleryImages.length > 1 ? (
+        {secondaryGalleryImages.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {galleryImages.slice(1).map((image, index) => (
+            {secondaryGalleryImages.map((image, index) => (
               <img
                 key={`${property.id}-gallery-${index}`}
                 src={image}

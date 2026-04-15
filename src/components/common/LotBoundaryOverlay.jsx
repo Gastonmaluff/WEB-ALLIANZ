@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import {
   normalizePolygonPoints,
@@ -19,6 +19,7 @@ export function LotBoundaryOverlay({
   trigger = "viewport",
   animateOnView = true,
   animateOnce = true,
+  replayIntervalMs = 0,
   strokeColor = "#7DD3FC",
   strokeWidth = 0.75,
   fillColor = "#50BEFF",
@@ -29,6 +30,7 @@ export function LotBoundaryOverlay({
 }) {
   const rootRef = useRef(null);
   const inView = useInView(rootRef, { once: animateOnce, margin: "-10% 0px -10% 0px" });
+  const [replayTick, setReplayTick] = useState(0);
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
   const pointsString = useMemo(() => polygonPointsToString(normalizedPoints), [normalizedPoints]);
   const pathD = useMemo(() => polygonPathD(normalizedPoints, closed), [normalizedPoints, closed]);
@@ -41,6 +43,20 @@ export function LotBoundaryOverlay({
   const shouldAnimate =
     animate &&
     (trigger === "mount" || !animateOnView || inView);
+  const canReplay =
+    animate &&
+    Number(replayIntervalMs) > 0 &&
+    closed &&
+    normalizedPoints.length > 2 &&
+    (trigger === "mount" || !animateOnView || inView);
+
+  useEffect(() => {
+    if (!canReplay) return undefined;
+    const intervalId = window.setInterval(() => {
+      setReplayTick((current) => current + 1);
+    }, Number(replayIntervalMs));
+    return () => window.clearInterval(intervalId);
+  }, [canReplay, replayIntervalMs]);
 
   if (!imageUrl) {
     return (
@@ -63,6 +79,7 @@ export function LotBoundaryOverlay({
         {closed && normalizedPoints.length > 2 ? (
           <>
             <motion.path
+              key={`lot-fill-${replayTick}`}
               d={pathD}
               fill={fillColor}
               fillOpacity={resolvedFillOpacity}
@@ -71,6 +88,7 @@ export function LotBoundaryOverlay({
               transition={{ duration: Math.max(0.22, Number(animationDuration) * 0.32), delay: shouldAnimate ? Math.max(0.35, Number(animationDuration) * 0.8) : 0 }}
             />
             <motion.path
+              key={`lot-stroke-${replayTick}`}
               d={pathD}
               fill="transparent"
               stroke={strokeColor}

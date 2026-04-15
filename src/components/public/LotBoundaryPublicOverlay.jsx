@@ -1,6 +1,17 @@
 import { LotBoundaryOverlay } from "../common/LotBoundaryOverlay";
 
-export function LotBoundaryPublicOverlay({ overlay, className = "" }) {
+export function LotBoundaryPublicOverlay({
+  overlay,
+  className = "",
+  trigger,
+  animateOnView,
+  animateOnce,
+  replayIntervalMs = 0,
+}) {
+  const resolvedAnimateOnView = animateOnView ?? overlay?.animateOnView ?? true;
+  const resolvedAnimateOnce = animateOnce ?? overlay?.animateOnce ?? true;
+  const resolvedTrigger = trigger ?? (resolvedAnimateOnView ? "viewport" : "mount");
+
   return (
     <LotBoundaryOverlay
       imageUrl={overlay?.imageUrl}
@@ -16,9 +27,10 @@ export function LotBoundaryPublicOverlay({ overlay, className = "" }) {
       fillOpacity={overlay?.fillOpacity}
       animate={overlay?.animate !== false}
       animationDuration={overlay?.animationDuration}
-      animateOnView={overlay?.animateOnView !== false}
-      animateOnce={overlay?.animateOnce !== false}
-      trigger={overlay?.animateOnView !== false ? "viewport" : "mount"}
+      animateOnView={resolvedAnimateOnView}
+      animateOnce={resolvedAnimateOnce}
+      trigger={resolvedTrigger}
+      replayIntervalMs={replayIntervalMs}
       className={className}
     />
   );

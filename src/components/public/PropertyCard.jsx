@@ -2,8 +2,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { buildPropertyWhatsappUrl, formatCurrency } from "../../utils/format";
 import { ImageSlider } from "../common/ImageSlider";
+import { LotBoundaryPublicOverlay } from "./LotBoundaryPublicOverlay";
 
-export function PropertyCard({ property }) {
+export function PropertyCard({ property, coverMode = "default" }) {
   const navigate = useNavigate();
   const detailPath = `/propiedades/${property.slug}`;
   const galleryImages = useMemo(() => {
@@ -11,6 +12,13 @@ export function PropertyCard({ property }) {
     return [...new Set(fromProperty.filter(Boolean))];
   }, [property.imagenPrincipal, property.imagenes]);
   const whatsappUrl = buildPropertyWhatsappUrl(property);
+  const lotBoundary = property?.lotOverlay || property?.loteDelimitacion || {};
+  const lotBoundaryImageUrl = lotBoundary?.imageUrl || property?.imagenPrincipal || "";
+  const lotBoundaryEnabled =
+    lotBoundary?.enabled === undefined
+      ? Boolean(lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2)
+      : Boolean(lotBoundary?.enabled);
+  const hasLotBoundary = lotBoundaryEnabled && lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2;
 
   const openDetail = () => navigate(detailPath);
 
@@ -28,17 +36,28 @@ export function PropertyCard({ property }) {
       }}
     >
       <div className="relative">
-        <ImageSlider
-          images={galleryImages}
-          altPrefix={property.titulo}
-          tone="light"
-          autoPlayMs={0}
-          showIndicators={galleryImages.length > 1}
-          showArrows={galleryImages.length > 1}
-          containerClassName="h-72"
-          controlsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-          indicatorsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        />
+        {coverMode === "lot-overlay" && hasLotBoundary ? (
+          <LotBoundaryPublicOverlay
+            overlay={{ ...lotBoundary, imageUrl: lotBoundaryImageUrl, animate: true }}
+            className="h-72"
+            trigger="viewport"
+            animateOnView
+            animateOnce
+            replayIntervalMs={0}
+          />
+        ) : (
+          <ImageSlider
+            images={galleryImages}
+            altPrefix={property.titulo}
+            tone="light"
+            autoPlayMs={0}
+            showIndicators={galleryImages.length > 1}
+            showArrows={galleryImages.length > 1}
+            containerClassName="h-72"
+            controlsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+            indicatorsClassName="opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          />
+        )}
       </div>
 
       <div className="space-y-5 p-5">

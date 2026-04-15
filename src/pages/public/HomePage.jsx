@@ -34,6 +34,7 @@ export function HomePage() {
         eyebrow="Desarrollos"
         title="Lotes"
         description="Oportunidades de tierra premium para proyectos residenciales e inversion de largo plazo."
+        cardCoverMode="lot-overlay"
         ctaTo={`${ROUTES.properties}?tipo=lote`}
         ctaLabel="Ver mas"
       />

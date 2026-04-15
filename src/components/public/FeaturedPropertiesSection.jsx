@@ -9,6 +9,7 @@ export function FeaturedPropertiesSection({
   description = "Residencias y departamentos de alto nivel con excelente ubicacion y calidad constructiva.",
   ctaTo,
   ctaLabel = "Ver mas",
+  cardCoverMode = "default",
   className = "",
 }) {
   return (
@@ -18,7 +19,7 @@ export function FeaturedPropertiesSection({
 
         <div className="grid gap-6 lg:grid-cols-3">
           {properties.map((property) => (
-            <PropertyCard key={property.id} property={property} />
+            <PropertyCard key={property.id} property={property} coverMode={cardCoverMode} />
           ))}
         </div>
 
