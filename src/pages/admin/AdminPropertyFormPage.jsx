@@ -154,17 +154,18 @@ export function AdminPropertyFormPage() {
   const isEdit = Boolean(editingProperty);
 
   const [form, setForm] = useState(() => normalizeProperty(editingProperty));
-  const [galleryInput, setGalleryInput] = useState("");
   const [lotImageInput, setLotImageInput] = useState("");
   const [editorMode, setEditorMode] = useState(LOT_EDITOR_MODE.add);
   const [previewVisible, setPreviewVisible] = useState(true);
   const [savingLotBoundary, setSavingLotBoundary] = useState(false);
   const [lotUploading, setLotUploading] = useState(false);
+  const [propertyImagesUploading, setPropertyImagesUploading] = useState(false);
   const [extraLabelInput, setExtraLabelInput] = useState("");
   const [extraValueInput, setExtraValueInput] = useState("");
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [saveFeedback, setSaveFeedback] = useState("");
+  const propertyImageFileInputRef = useRef(null);
   const lotImageFileInputRef = useRef(null);
   const generatedSlug = useMemo(() => slugify(form.titulo), [form.titulo]);
   const extraFeaturesCount = (form.caracteristicasExtras || []).length;
@@ -205,21 +206,51 @@ export function AdminPropertyFormPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const addImage = () => {
-    const image = galleryInput.trim();
-    if (!image) return;
+  const handlePropertyImageFiles = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    setPropertyImagesUploading(true);
+    setSaveFeedback("Optimizando y subiendo imagenes de la propiedad...");
+    try {
+      const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
+      const uploadedUrls = [];
+      for (let index = 0; index < files.length; index += 1) {
+        const optimized = await optimizeLotImage(files[index], { maxWidth: 2000, previewWidth: 1200 });
+        const remoteUrl = await uploadPropertyImage(
+          optimized.optimizedFile,
+          `properties/${propertyKey}/gallery`
+        );
+        uploadedUrls.push(remoteUrl);
+      }
 
-    const all = uniqueImages([form.imagenPrincipal, ...form.imagenes, image]);
-    if (!form.imagenPrincipal) {
-      setForm((prev) => ({ ...prev, imagenPrincipal: image, imagenes: prev.imagenes }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        imagenes: all.filter((item) => item !== prev.imagenPrincipal),
-      }));
+      setForm((prev) => {
+        const merged = uniqueImages([prev.imagenPrincipal, ...prev.imagenes, ...uploadedUrls]);
+        if (!prev.imagenPrincipal && merged.length) {
+          return {
+            ...prev,
+            imagenPrincipal: merged[0],
+            imagenes: merged.slice(1),
+          };
+        }
+        return {
+          ...prev,
+          imagenes: merged.filter((item) => item !== prev.imagenPrincipal),
+        };
+      });
+      setErrors((prev) => ({ ...prev, imagenPrincipal: "" }));
+      setSaveFeedback(
+        `Se subieron ${uploadedUrls.length} imagen(es) correctamente a Firebase Storage.`
+      );
+    } catch {
+      setSaveFeedback("No se pudieron subir las imagenes. Intenta nuevamente.");
+    } finally {
+      setPropertyImagesUploading(false);
+      event.target.value = "";
     }
-    setGalleryInput("");
-    setErrors((prev) => ({ ...prev, imagenPrincipal: "" }));
+  };
+
+  const requestPropertyImageUpload = () => {
+    propertyImageFileInputRef.current?.click();
   };
 
   const removeImage = (image) => {
@@ -780,23 +811,36 @@ export function AdminPropertyFormPage() {
 
         <FormSection title="E. Imagenes y galeria" description="Gestiona portada y orden visual de la propiedad.">
           <div className="space-y-4">
+            <input
+              ref={propertyImageFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handlePropertyImageFiles}
+            />
             <Field
-              label="Agregar URL de imagen"
-              name="newImage"
+              label="Subir imagenes"
+              name="propertyImages"
               error={errors.imagenPrincipal}
-              help="Puedes definir portada desde las miniaturas."
+              help={
+                propertyImagesUploading
+                  ? "Procesando archivos..."
+                  : "Sube una o varias imagenes. Se optimizan y se guardan en Firebase Storage."
+              }
             >
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  id="newImage"
-                  value={galleryInput}
-                  onChange={(event) => setGalleryInput(event.target.value)}
-                  className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                  placeholder="https://..."
-                />
-                <AppButton type="button" variant="ghost" onClick={addImage} className="whitespace-nowrap">
-                  Agregar imagen
+              <div className="flex flex-wrap items-center gap-2">
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  className="whitespace-nowrap"
+                  onClick={requestPropertyImageUpload}
+                >
+                  {propertyImagesUploading ? "Subiendo..." : "Subir archivos"}
                 </AppButton>
+                <span className="text-xs text-slate">
+                  Formatos sugeridos: JPG/PNG/WebP.
+                </span>
               </div>
             </Field>
 
