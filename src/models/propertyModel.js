@@ -24,12 +24,21 @@ export const emptyProperty = {
   imagenes: [],
   destacadaEnPortada: false,
   publicada: true,
-  loteDelimitacion: {
+  lotOverlay: {
     imageUrl: "",
     points: [],
     closed: false,
-    label: "",
+    strokeColor: "#7DD3FC",
+    strokeWidth: 0.75,
+    fillColor: "#50BEFF",
+    fillOpacity: 0.18,
+    animationDuration: 1.35,
+    animate: true,
+    animateOnView: true,
+    animateOnce: true,
     showLabel: true,
+    labelTitle: "",
+    labelSubtitle: "",
   },
   createdAt: new Date().toISOString(),
 };

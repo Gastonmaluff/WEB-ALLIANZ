@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import { clampPercentage, normalizePolygonPoints, polygonPointsToString } from "../../utils/polygon";
 
+export const LOT_EDITOR_MODE = {
+  add: "add",
+  move: "move",
+  delete: "delete",
+};
+
 function getPointerCoordinates(event, currentTarget) {
   const rect = currentTarget.getBoundingClientRect();
   const x = clampPercentage(((event.clientX - rect.left) / rect.width) * 100);
@@ -11,7 +17,40 @@ function getPointerCoordinates(event, currentTarget) {
   };
 }
 
-export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onChange }) {
+function ToolButton({ children, active = false, disabled = false, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${
+        active
+          ? "border-[#041B2C] bg-[#041B2C] text-white"
+          : "border-stone bg-white text-ink hover:border-ink"
+      } disabled:cursor-not-allowed disabled:opacity-50`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function LotBoundaryEditor({
+  imageUrl,
+  points = [],
+  closed = false,
+  strokeColor = "#7DD3FC",
+  strokeWidth = 0.75,
+  fillColor = "#50BEFF",
+  fillOpacity = 0.18,
+  mode = LOT_EDITOR_MODE.add,
+  onModeChange,
+  onChange,
+  onRequestImageUpload,
+  onRequestSave,
+  onTogglePreview,
+  previewVisible = true,
+  isSaving = false,
+}) {
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
   const [draggingPointId, setDraggingPointId] = useState("");
 
@@ -23,13 +62,14 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
   };
 
   const addPoint = (event) => {
-    if (!imageUrl || closed) return;
+    if (!imageUrl || closed || mode !== LOT_EDITOR_MODE.add) return;
     const coords = getPointerCoordinates(event, event.currentTarget);
     const next = [...normalizedPoints, { id: `pt-${Date.now()}`, ...coords }];
     updatePoints(next, false);
   };
 
   const startDrag = (pointId) => (event) => {
+    if (mode !== LOT_EDITOR_MODE.move) return;
     event.stopPropagation();
     setDraggingPointId(pointId);
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -40,7 +80,7 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
   };
 
   const onPointerMove = (event) => {
-    if (!draggingPointId) return;
+    if (!draggingPointId || mode !== LOT_EDITOR_MODE.move) return;
     const coords = getPointerCoordinates(event, event.currentTarget);
     updatePoints(
       normalizedPoints.map((point) => (point.id === draggingPointId ? { ...point, ...coords } : point)),
@@ -66,6 +106,11 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
     updatePoints(next, next.length > 2 && closed);
   };
 
+  const onPointClick = (pointId) => (event) => {
+    event.stopPropagation();
+    if (mode === LOT_EDITOR_MODE.delete) removePoint(pointId);
+  };
+
   const updatePointValue = (pointId, axis, rawValue) => {
     const numeric = clampPercentage(rawValue);
     const value = Number(numeric.toFixed(2));
@@ -76,9 +121,44 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
   };
 
   const pointsString = polygonPointsToString(normalizedPoints);
+  const cursorClass = mode === LOT_EDITOR_MODE.add ? "cursor-crosshair" : "cursor-default";
+  const pointCursor =
+    mode === LOT_EDITOR_MODE.move
+      ? "cursor-grab active:cursor-grabbing"
+      : mode === LOT_EDITOR_MODE.delete
+      ? "cursor-not-allowed"
+      : "cursor-pointer";
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        <ToolButton onClick={onRequestImageUpload}>Subir imagen</ToolButton>
+        <ToolButton active={mode === LOT_EDITOR_MODE.add} onClick={() => onModeChange?.(LOT_EDITOR_MODE.add)}>
+          Agregar puntos
+        </ToolButton>
+        <ToolButton active={mode === LOT_EDITOR_MODE.move} onClick={() => onModeChange?.(LOT_EDITOR_MODE.move)}>
+          Mover puntos
+        </ToolButton>
+        <ToolButton active={mode === LOT_EDITOR_MODE.delete} onClick={() => onModeChange?.(LOT_EDITOR_MODE.delete)}>
+          Eliminar punto
+        </ToolButton>
+        <ToolButton onClick={closePolygon} disabled={closed || normalizedPoints.length < 3}>
+          Cerrar poligono
+        </ToolButton>
+        <ToolButton onClick={reopenPolygon} disabled={!closed}>
+          Reabrir
+        </ToolButton>
+        <ToolButton onClick={clearPolygon} disabled={!normalizedPoints.length}>
+          Reiniciar
+        </ToolButton>
+        <ToolButton onClick={onTogglePreview} active={previewVisible}>
+          Vista previa
+        </ToolButton>
+        <ToolButton onClick={onRequestSave} disabled={!imageUrl || isSaving}>
+          {isSaving ? "Guardando..." : "Guardar delimitacion"}
+        </ToolButton>
+      </div>
+
       <div className="relative overflow-hidden border border-stone bg-[#0A2032]">
         {imageUrl ? (
           <>
@@ -86,7 +166,7 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
-              className="absolute inset-0 h-full w-full cursor-crosshair"
+              className={`absolute inset-0 h-full w-full ${cursorClass}`}
               onClick={addPoint}
               onPointerMove={onPointerMove}
               onPointerUp={endDrag}
@@ -95,17 +175,18 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
               {closed && normalizedPoints.length > 2 ? (
                 <polygon
                   points={pointsString}
-                  fill="rgba(80, 190, 255, 0.16)"
-                  stroke="#7DD3FC"
-                  strokeWidth="0.75"
+                  fill={fillColor}
+                  fillOpacity={fillOpacity}
+                  stroke={strokeColor}
+                  strokeWidth={strokeWidth}
                   strokeLinejoin="round"
                 />
               ) : normalizedPoints.length > 1 ? (
                 <polyline
                   points={pointsString}
                   fill="transparent"
-                  stroke="#7DD3FC"
-                  strokeWidth="0.75"
+                  stroke={strokeColor}
+                  strokeWidth={strokeWidth}
                   strokeLinejoin="round"
                 />
               ) : null}
@@ -119,9 +200,9 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
                     fill="#03121F"
                     stroke="#E0F2FE"
                     strokeWidth="0.35"
-                    className="cursor-grab active:cursor-grabbing"
+                    className={pointCursor}
                     onPointerDown={startDrag(point.id)}
-                    onClick={(event) => event.stopPropagation()}
+                    onClick={onPointClick(point.id)}
                   />
                   <text
                     x={point.x + 1.6}
@@ -143,72 +224,43 @@ export function LotBoundaryEditor({ imageUrl, points = [], closed = false, onCha
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={closePolygon}
-          disabled={closed || normalizedPoints.length < 3}
-          className="border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition enabled:hover:border-ink disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Cerrar poligono
-        </button>
-        <button
-          type="button"
-          onClick={reopenPolygon}
-          disabled={!closed}
-          className="border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition enabled:hover:border-ink disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Reabrir
-        </button>
-        <button
-          type="button"
-          onClick={clearPolygon}
-          disabled={!normalizedPoints.length}
-          className="border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition enabled:hover:border-[#7A2A2A] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Limpiar todo
-        </button>
-      </div>
-
-      {normalizedPoints.length ? (
-        <div className="space-y-2">
-          {normalizedPoints.map((point, index) => (
-            <div
-              key={`point-row-${point.id}`}
-              className="grid grid-cols-[32px_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 border border-stone bg-surface px-3 py-2"
+      <div className="hidden space-y-2 lg:block">
+        {normalizedPoints.map((point, index) => (
+          <div
+            key={`point-row-${point.id}`}
+            className="grid grid-cols-[32px_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 border border-stone bg-surface px-3 py-2"
+          >
+            <span className="text-xs font-semibold text-slate">{index + 1}</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={point.x}
+              onChange={(event) => updatePointValue(point.id, "x", event.target.value)}
+              className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
+              title="Coordenada X (%)"
+            />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={point.y}
+              onChange={(event) => updatePointValue(point.id, "y", event.target.value)}
+              className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
+              title="Coordenada Y (%)"
+            />
+            <button
+              type="button"
+              onClick={() => removePoint(point.id)}
+              className="border border-[#7A2A2A]/35 bg-white px-2 py-1.5 text-[10px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
             >
-              <span className="text-xs font-semibold text-slate">{index + 1}</span>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={point.x}
-                onChange={(event) => updatePointValue(point.id, "x", event.target.value)}
-                className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
-                title="Coordenada X (%)"
-              />
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={point.y}
-                onChange={(event) => updatePointValue(point.id, "y", event.target.value)}
-                className="w-full border border-stone bg-white px-2 py-1.5 text-xs outline-none focus:border-ink"
-                title="Coordenada Y (%)"
-              />
-              <button
-                type="button"
-                onClick={() => removePoint(point.id)}
-                className="border border-[#7A2A2A]/35 bg-white px-2 py-1.5 text-[10px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
-              >
-                Quitar
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+              Quitar
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

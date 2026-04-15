@@ -10,7 +10,7 @@ import {
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { ImageSlider } from "../../components/common/ImageSlider";
-import { LotBoundaryOverlay } from "../../components/common/LotBoundaryOverlay";
+import { LotBoundaryPublicOverlay } from "../../components/public/LotBoundaryPublicOverlay";
 
 export function PropertyDetailPage() {
   const { slug } = useParams();
@@ -26,7 +26,7 @@ export function PropertyDetailPage() {
   const extraFeatures = (property?.caracteristicasExtras || []).filter(
     (item) => item?.label && String(item.label).trim() && item?.value !== undefined && item?.value !== null && String(item.value).trim()
   );
-  const lotBoundary = property?.loteDelimitacion || {};
+  const lotBoundary = property?.lotOverlay || property?.loteDelimitacion || {};
   const isLotProperty = ["lote", "terreno"].includes(String(property?.tipoPropiedad || "").toLowerCase());
 
   if (!property) {
@@ -123,14 +123,11 @@ export function PropertyDetailPage() {
                 El contorno animado identifica con precision la superficie de la fraccion publicada.
               </p>
             </div>
-            <LotBoundaryOverlay
-              imageUrl={lotBoundary.imageUrl}
-              points={lotBoundary.points}
-              closed={lotBoundary.closed}
-              label={lotBoundary.label || (property.superficie ? `${property.superficie} m2` : "")}
-              showLabel={lotBoundary.showLabel !== false}
-              animate
-              trigger="viewport"
+            <LotBoundaryPublicOverlay
+              overlay={{
+                ...lotBoundary,
+                labelTitle: lotBoundary?.labelTitle || (property.superficie ? `${property.superficie} m2` : ""),
+              }}
               className="aspect-[16/9]"
             />
           </article>

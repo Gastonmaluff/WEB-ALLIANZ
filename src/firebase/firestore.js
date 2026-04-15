@@ -3,9 +3,11 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   orderBy,
   query,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "./config";
@@ -16,7 +18,7 @@ const testimonialsCollection = collection(db, "testimonials");
 export async function fetchProperties() {
   const q = query(propertiesCollection, orderBy("createdAt", "desc"));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snapshot.docs.map((d) => ({ ...d.data(), id: d.id }));
 }
 
 export async function createProperty(payload) {
@@ -25,6 +27,16 @@ export async function createProperty(payload) {
 
 export async function updateProperty(id, payload) {
   return updateDoc(doc(db, "properties", id), payload);
+}
+
+export async function fetchPropertyById(id) {
+  const snapshot = await getDoc(doc(db, "properties", id));
+  if (!snapshot.exists()) return null;
+  return { ...snapshot.data(), id: snapshot.id };
+}
+
+export async function upsertPropertyById(id, payload) {
+  return setDoc(doc(db, "properties", id), payload, { merge: true });
 }
 
 export async function deleteProperty(id) {

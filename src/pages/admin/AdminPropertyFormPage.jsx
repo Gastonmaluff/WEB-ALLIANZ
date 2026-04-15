@@ -1,10 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { LotBoundaryEditor } from "../../components/admin/LotBoundaryEditor";
+import { LotBoundaryEditor, LOT_EDITOR_MODE } from "../../components/admin/LotBoundaryEditor";
+import { LotBoundaryPreview } from "../../components/admin/LotBoundaryPreview";
 import { AppButton } from "../../components/common/AppButton";
-import { LotBoundaryOverlay } from "../../components/common/LotBoundaryOverlay";
-import { getPropertyBySlug, upsertProperty } from "../../content/propertiesContent";
+import {
+  getPropertyBySlug,
+  syncPropertiesFromCloud,
+  upsertProperty,
+} from "../../content/propertiesContent";
+import { uploadPropertyImage } from "../../firebase/storage";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { ROUTES } from "../../router/paths";
 import { formatOperationLabel, slugify } from "../../utils/format";
@@ -29,13 +34,23 @@ function normalizeExtraFeatures(items) {
     .filter((item) => item.label && item.value);
 }
 
-function normalizeLotBoundary(boundary, fallbackLabel = "") {
+function normalizeLotOverlay(overlay, fallbackTitle = "", legacyBoundary = null) {
+  const source = overlay || legacyBoundary || {};
   return {
-    imageUrl: String(boundary?.imageUrl || "").trim(),
-    points: normalizePolygonPoints(boundary?.points || []),
-    closed: Boolean(boundary?.closed),
-    label: String(boundary?.label || fallbackLabel || "").trim(),
-    showLabel: boundary?.showLabel !== false,
+    imageUrl: String(source?.imageUrl || "").trim(),
+    points: normalizePolygonPoints(source?.points || []),
+    closed: Boolean(source?.closed),
+    strokeColor: String(source?.strokeColor || "#7DD3FC"),
+    strokeWidth: Number(source?.strokeWidth || 0.75),
+    fillColor: String(source?.fillColor || "#50BEFF"),
+    fillOpacity: Number(source?.fillOpacity ?? 0.18),
+    animationDuration: Number(source?.animationDuration || 1.35),
+    animate: source?.animate !== false,
+    animateOnView: source?.animateOnView !== false,
+    animateOnce: source?.animateOnce !== false,
+    showLabel: source?.showLabel !== false,
+    labelTitle: String(source?.labelTitle || source?.label || fallbackTitle || "").trim(),
+    labelSubtitle: String(source?.labelSubtitle || "").trim(),
   };
 }
 
@@ -46,7 +61,7 @@ function normalizeProperty(foundProperty) {
       publicada: true,
       consultarPrecio: false,
       caracteristicasExtras: [],
-      loteDelimitacion: normalizeLotBoundary(null),
+      lotOverlay: normalizeLotOverlay(null),
     };
   }
 
@@ -61,9 +76,10 @@ function normalizeProperty(foundProperty) {
     publicada: foundProperty.publicada ?? true,
     consultarPrecio: foundProperty.consultarPrecio ?? false,
     caracteristicasExtras: normalizeExtraFeatures(foundProperty.caracteristicasExtras),
-    loteDelimitacion: normalizeLotBoundary(
-      foundProperty.loteDelimitacion,
-      foundProperty.superficie ? `${foundProperty.superficie} m2` : ""
+    lotOverlay: normalizeLotOverlay(
+      foundProperty.lotOverlay,
+      foundProperty.superficie ? `${foundProperty.superficie} m2` : "",
+      foundProperty.loteDelimitacion
     ),
   };
 }
@@ -113,10 +129,10 @@ function validateForm(form) {
     errors.googleMapsUrl = "La URL debe iniciar con http:// o https://";
   }
   const isLot = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
-  if (isLot && form.loteDelimitacion?.imageUrl && !/^https?:\/|^data:image\//i.test(form.loteDelimitacion.imageUrl)) {
+  if (isLot && form.lotOverlay?.imageUrl && !/^https?:\/|^data:image\//i.test(form.lotOverlay.imageUrl)) {
     errors.loteImageUrl = "La imagen aerea debe ser URL valida o archivo cargado.";
   }
-  if (isLot && form.loteDelimitacion?.points?.length > 0 && form.loteDelimitacion.points.length < 3) {
+  if (isLot && form.lotOverlay?.points?.length > 0 && form.lotOverlay.points.length < 3) {
     errors.lotePoints = "El poligono necesita al menos 3 vertices.";
   }
 
@@ -131,11 +147,16 @@ export function AdminPropertyFormPage() {
   const [form, setForm] = useState(() => normalizeProperty(editingProperty));
   const [galleryInput, setGalleryInput] = useState("");
   const [lotImageInput, setLotImageInput] = useState("");
+  const [editorMode, setEditorMode] = useState(LOT_EDITOR_MODE.add);
+  const [previewVisible, setPreviewVisible] = useState(true);
+  const [savingLotBoundary, setSavingLotBoundary] = useState(false);
+  const [lotUploading, setLotUploading] = useState(false);
   const [extraLabelInput, setExtraLabelInput] = useState("");
   const [extraValueInput, setExtraValueInput] = useState("");
   const [isExtraOpen, setIsExtraOpen] = useState(false);
   const [errors, setErrors] = useState({});
   const [saveFeedback, setSaveFeedback] = useState("");
+  const lotImageFileInputRef = useRef(null);
   const generatedSlug = useMemo(() => slugify(form.titulo), [form.titulo]);
   const extraFeaturesCount = (form.caracteristicasExtras || []).length;
 
@@ -144,6 +165,18 @@ export function AdminPropertyFormPage() {
     [form.imagenPrincipal, form.imagenes]
   );
   const isLotProperty = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
+
+  useEffect(() => {
+    syncPropertiesFromCloud();
+  }, []);
+
+  useEffect(() => {
+    if (!slug) return;
+    const freshProperty = getPropertyBySlug(slug);
+    if (freshProperty) {
+      setForm(normalizeProperty(freshProperty));
+    }
+  }, [slug]);
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
@@ -221,10 +254,10 @@ export function AdminPropertyFormPage() {
   const updateLotBoundary = (patch) => {
     setForm((prev) => ({
       ...prev,
-      loteDelimitacion: {
-        ...prev.loteDelimitacion,
+      lotOverlay: {
+        ...prev.lotOverlay,
         ...patch,
-        points: normalizePolygonPoints(patch.points ?? prev.loteDelimitacion?.points ?? []),
+        points: normalizePolygonPoints(patch.points ?? prev.lotOverlay?.points ?? []),
       },
     }));
     setErrors((prev) => ({ ...prev, loteImageUrl: "", lotePoints: "" }));
@@ -242,17 +275,61 @@ export function AdminPropertyFormPage() {
     updateLotBoundary({ imageUrl: "", points: [], closed: false });
   };
 
-  const handleLotImageFile = (event) => {
+  const handleLotImageFile = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        updateLotBoundary({ imageUrl: reader.result });
-      }
-    };
-    reader.readAsDataURL(file);
+    setLotUploading(true);
+    try {
+      const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
+      const remoteUrl = await uploadPropertyImage(file, `properties/${propertyKey}/lot-overlay`);
+      updateLotBoundary({ imageUrl: remoteUrl });
+      setSaveFeedback("Imagen aerea subida correctamente a Firebase Storage.");
+    } catch {
+      setSaveFeedback("No se pudo subir la imagen a Storage. Intenta nuevamente.");
+    } finally {
+      setLotUploading(false);
+    }
     event.target.value = "";
+  };
+
+  const requestLotImageUpload = () => {
+    lotImageFileInputRef.current?.click();
+  };
+
+  const saveLotBoundaryOnly = async () => {
+    if (!isLotProperty) return;
+    if (!form.lotOverlay?.imageUrl) {
+      setSaveFeedback("Primero carga la imagen aerea.");
+      return;
+    }
+    if ((form.lotOverlay?.points || []).length < 3 || !form.lotOverlay?.closed) {
+      setSaveFeedback("Cierra el poligono con al menos 3 vertices antes de guardar.");
+      return;
+    }
+
+    const payload = {
+      ...form,
+      id: form.id || generatedSlug || `property-${Date.now()}`,
+      slug: generatedSlug,
+      lotOverlay: normalizeLotOverlay(form.lotOverlay, form.superficie ? `${form.superficie} m2` : ""),
+      caracteristicasExtras: normalizeExtraFeatures(form.caracteristicasExtras),
+      precio: Number(form.precio),
+      superficie: Number(form.superficie),
+      dormitorios: Number(form.dormitorios),
+      banos: Number(form.banos),
+      cochera: Number(form.cochera),
+      imagenes: form.imagenes.filter((image) => image !== form.imagenPrincipal),
+    };
+
+    setSavingLotBoundary(true);
+    try {
+      await upsertProperty(payload);
+      setSaveFeedback("Delimitacion guardada en Firestore.");
+    } catch {
+      setSaveFeedback("No se pudo guardar la delimitacion en Firestore.");
+    } finally {
+      setSavingLotBoundary(false);
+    }
   };
 
   const addExtraFeature = () => {
@@ -287,7 +364,7 @@ export function AdminPropertyFormPage() {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const validationErrors = validateForm(form);
     setErrors(validationErrors);
@@ -309,11 +386,15 @@ export function AdminPropertyFormPage() {
       dormitorios: Number(form.dormitorios),
       banos: Number(form.banos),
       cochera: Number(form.cochera),
-      loteDelimitacion: normalizeLotBoundary(form.loteDelimitacion, form.superficie ? `${form.superficie} m2` : ""),
+      lotOverlay: normalizeLotOverlay(form.lotOverlay, form.superficie ? `${form.superficie} m2` : ""),
     };
 
-    upsertProperty(payload);
-    setSaveFeedback("Propiedad guardada correctamente.");
+    try {
+      await upsertProperty(payload);
+      setSaveFeedback("Propiedad guardada correctamente en Firestore.");
+    } catch {
+      setSaveFeedback("No se pudo guardar en Firestore. Revisa conexion y permisos.");
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -744,88 +825,217 @@ export function AdminPropertyFormPage() {
             title="F. Delimitacion visual del lote"
             description="Marca vertices manualmente sobre imagen aerea y guarda la delimitacion."
           >
-            <div className="space-y-4">
-              <Field
-                label="Imagen aerea del lote"
-                name="lotImageUrl"
-                error={errors.loteImageUrl}
-                help="Puedes pegar una URL o cargar un archivo de imagen."
-              >
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input
-                    id="lotImageUrl"
-                    value={lotImageInput}
-                    onChange={(event) => setLotImageInput(event.target.value)}
-                    className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                    placeholder="https://..."
-                  />
-                  <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
-                    Usar URL
-                  </AppButton>
-                </div>
-                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:border-ink">
-                  Cargar archivo
-                  <input type="file" accept="image/*" className="hidden" onChange={handleLotImageFile} />
-                </label>
-              </Field>
-
-              <LotBoundaryEditor
-                imageUrl={form.loteDelimitacion?.imageUrl}
-                points={form.loteDelimitacion?.points || []}
-                closed={Boolean(form.loteDelimitacion?.closed)}
-                onChange={(next) => updateLotBoundary(next)}
-              />
-
-              {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
-
-              <div className="grid gap-3 md:grid-cols-2">
+            <input
+              ref={lotImageFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLotImageFile}
+            />
+            <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+              <div className="space-y-3">
                 <Field
-                  label="Etiqueta"
-                  name="lotBoundaryLabel"
-                  help="Opcional. Ejemplo: 810 m2"
+                  label="Imagen aerea del lote"
+                  name="lotImageUrl"
+                  error={errors.loteImageUrl}
+                  help={lotUploading ? "Subiendo imagen a Firebase Storage..." : "Puedes pegar una URL o cargar archivo desde la barra de acciones."}
                 >
-                  <input
-                    id="lotBoundaryLabel"
-                    value={form.loteDelimitacion?.label || ""}
-                    onChange={(event) => updateLotBoundary({ label: event.target.value })}
-                    className="w-full border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                    placeholder={`${form.superficie || 0} m2`}
-                  />
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id="lotImageUrl"
+                      value={lotImageInput}
+                      onChange={(event) => setLotImageInput(event.target.value)}
+                      className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                      placeholder="https://..."
+                    />
+                    <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
+                      Usar URL
+                    </AppButton>
+                  </div>
                 </Field>
-                <label className="inline-flex items-center gap-2 border border-stone bg-surface px-4 py-3 text-xs font-semibold uppercase tracking-editorial text-ink">
-                  <input
-                    type="checkbox"
-                    checked={form.loteDelimitacion?.showLabel !== false}
-                    onChange={(event) => updateLotBoundary({ showLabel: event.target.checked })}
-                    className="h-4 w-4 accent-[#041B2C]"
-                  />
-                  Mostrar etiqueta
-                </label>
-              </div>
 
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-editorial text-slate">Vista previa animada</p>
-                <LotBoundaryOverlay
-                  imageUrl={form.loteDelimitacion?.imageUrl}
-                  points={form.loteDelimitacion?.points || []}
-                  closed={Boolean(form.loteDelimitacion?.closed)}
-                  label={form.loteDelimitacion?.label || (form.superficie ? `${form.superficie} m2` : "")}
-                  showLabel={form.loteDelimitacion?.showLabel !== false}
-                  animate
-                  trigger="mount"
-                  className="aspect-[16/9]"
+                <LotBoundaryEditor
+                  imageUrl={form.lotOverlay?.imageUrl}
+                  points={form.lotOverlay?.points || []}
+                  closed={Boolean(form.lotOverlay?.closed)}
+                  mode={editorMode}
+                  onModeChange={setEditorMode}
+                  strokeColor={form.lotOverlay?.strokeColor}
+                  strokeWidth={form.lotOverlay?.strokeWidth}
+                  fillColor={form.lotOverlay?.fillColor}
+                  fillOpacity={form.lotOverlay?.fillOpacity}
+                  onChange={(next) => updateLotBoundary(next)}
+                  onRequestImageUpload={requestLotImageUpload}
+                  onRequestSave={saveLotBoundaryOnly}
+                  onTogglePreview={() => setPreviewVisible((prev) => !prev)}
+                  previewVisible={previewVisible}
+                  isSaving={savingLotBoundary}
                 />
+                {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
+
+                <div className="space-y-2 lg:hidden">
+                  <article className="border border-stone bg-surface p-4">
+                    <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
+                    <ul className="mt-2 space-y-1 text-sm text-ink">
+                      <li>Imagen cargada: {form.lotOverlay?.imageUrl ? "Si" : "No"}</li>
+                      <li>Puntos: {(form.lotOverlay?.points || []).length}</li>
+                      <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
+                    </ul>
+                  </article>
+                  {previewVisible ? (
+                    <div className="space-y-2">
+                      <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
+                      <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
+                    </div>
+                  ) : null}
+                </div>
               </div>
 
-              {form.loteDelimitacion?.imageUrl ? (
-                <button
-                  type="button"
-                  onClick={removeLotImage}
-                  className="inline-flex items-center justify-center border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
-                >
-                  Quitar imagen y delimitacion
-                </button>
-              ) : null}
+              <div className="hidden space-y-3 lg:block">
+                <article className="border border-stone bg-surface p-4">
+                  <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
+                  <ul className="mt-2 space-y-1 text-sm text-ink">
+                    <li>Imagen cargada: {form.lotOverlay?.imageUrl ? "Si" : "No"}</li>
+                    <li>Puntos: {(form.lotOverlay?.points || []).length}</li>
+                    <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
+                  </ul>
+                </article>
+
+                <article className="border border-stone bg-surface p-4 space-y-3">
+                  <p className="text-[11px] uppercase tracking-editorial text-slate">Apariencia</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                      Color linea
+                      <input
+                        type="color"
+                        value={form.lotOverlay?.strokeColor || "#7DD3FC"}
+                        onChange={(event) => updateLotBoundary({ strokeColor: event.target.value })}
+                        className="h-10 w-full border border-stone bg-white p-1"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                      Grosor linea
+                      <input
+                        type="number"
+                        min="0.2"
+                        max="4"
+                        step="0.05"
+                        value={form.lotOverlay?.strokeWidth || 0.75}
+                        onChange={(event) => updateLotBoundary({ strokeWidth: Number(event.target.value) })}
+                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                      Color relleno
+                      <input
+                        type="color"
+                        value={form.lotOverlay?.fillColor || "#50BEFF"}
+                        onChange={(event) => updateLotBoundary({ fillColor: event.target.value })}
+                        className="h-10 w-full border border-stone bg-white p-1"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                      Opacidad relleno
+                      <input
+                        type="number"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={form.lotOverlay?.fillOpacity ?? 0.18}
+                        onChange={(event) => updateLotBoundary({ fillOpacity: Number(event.target.value) })}
+                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                      />
+                    </label>
+                  </div>
+                </article>
+
+                <article className="border border-stone bg-surface p-4 space-y-3">
+                  <p className="text-[11px] uppercase tracking-editorial text-slate">Animacion</p>
+                  <div className="space-y-2 text-sm text-ink">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form.lotOverlay?.animate !== false}
+                        onChange={(event) => updateLotBoundary({ animate: event.target.checked })}
+                        className="h-4 w-4 accent-[#041B2C]"
+                      />
+                      Activar animacion
+                    </label>
+                    <label className="space-y-1 block text-xs uppercase tracking-editorial text-slate">
+                      Duracion (seg)
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="6"
+                        step="0.1"
+                        value={form.lotOverlay?.animationDuration || 1.35}
+                        onChange={(event) => updateLotBoundary({ animationDuration: Number(event.target.value) })}
+                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                      />
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form.lotOverlay?.animateOnView !== false}
+                        onChange={(event) => updateLotBoundary({ animateOnView: event.target.checked })}
+                        className="h-4 w-4 accent-[#041B2C]"
+                      />
+                      Reproducir al entrar en viewport
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={form.lotOverlay?.animateOnce !== false}
+                        onChange={(event) => updateLotBoundary({ animateOnce: event.target.checked })}
+                        className="h-4 w-4 accent-[#041B2C]"
+                      />
+                      Reproducir una sola vez
+                    </label>
+                  </div>
+                </article>
+
+                <article className="border border-stone bg-surface p-4 space-y-3">
+                  <p className="text-[11px] uppercase tracking-editorial text-slate">Etiqueta</p>
+                  <label className="inline-flex items-center gap-2 text-sm text-ink">
+                    <input
+                      type="checkbox"
+                      checked={form.lotOverlay?.showLabel !== false}
+                      onChange={(event) => updateLotBoundary({ showLabel: event.target.checked })}
+                      className="h-4 w-4 accent-[#041B2C]"
+                    />
+                    Mostrar etiqueta
+                  </label>
+                  <input
+                    value={form.lotOverlay?.labelTitle || ""}
+                    onChange={(event) => updateLotBoundary({ labelTitle: event.target.value })}
+                    placeholder="Titulo"
+                    className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                  />
+                  <input
+                    value={form.lotOverlay?.labelSubtitle || ""}
+                    onChange={(event) => updateLotBoundary({ labelSubtitle: event.target.value })}
+                    placeholder="Subtitulo"
+                    className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                  />
+                </article>
+
+                {previewVisible ? (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
+                    <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
+                  </div>
+                ) : null}
+
+                {form.lotOverlay?.imageUrl ? (
+                  <button
+                    type="button"
+                    onClick={removeLotImage}
+                    className="inline-flex items-center justify-center border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
+                  >
+                    Quitar imagen y delimitacion
+                  </button>
+                ) : null}
+              </div>
             </div>
           </FormSection>
         ) : null}

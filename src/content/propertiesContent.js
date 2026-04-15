@@ -2,16 +2,30 @@ import { emptyProperty } from "../models/propertyModel";
 import { MOCK_PROPERTIES } from "../mocks/properties";
 import { normalizePolygonPoints } from "../utils/polygon";
 import { slugify } from "../utils/format";
+import { fetchProperties, upsertPropertyById } from "../firebase/firestore";
 
 const PROPERTIES_STORAGE_KEY = "allianz.properties.v1";
+const listeners = new Set();
+let syncingPromise = null;
+let hasCloudSync = false;
 
-function normalizeLotBoundary(boundary, fallbackLabel = "") {
+function normalizeLotOverlay(overlay, fallbackLabel = "", legacyBoundary = null) {
+  const source = overlay || legacyBoundary || {};
   return {
-    imageUrl: String(boundary?.imageUrl || "").trim(),
-    points: normalizePolygonPoints(boundary?.points || []),
-    closed: Boolean(boundary?.closed),
-    label: String(boundary?.label || fallbackLabel || "").trim(),
-    showLabel: boundary?.showLabel !== false,
+    imageUrl: String(source?.imageUrl || "").trim(),
+    points: normalizePolygonPoints(source?.points || []),
+    closed: Boolean(source?.closed),
+    strokeColor: String(source?.strokeColor || "#7DD3FC"),
+    strokeWidth: Number(source?.strokeWidth || 0.75),
+    fillColor: String(source?.fillColor || "#50BEFF"),
+    fillOpacity: Number(source?.fillOpacity ?? 0.18),
+    animationDuration: Number(source?.animationDuration || 1.35),
+    animate: source?.animate !== false,
+    animateOnView: source?.animateOnView !== false,
+    animateOnce: source?.animateOnce !== false,
+    showLabel: source?.showLabel !== false,
+    labelTitle: String(source?.labelTitle || source?.label || fallbackLabel || "").trim(),
+    labelSubtitle: String(source?.labelSubtitle || "").trim(),
   };
 }
 
@@ -45,13 +59,27 @@ function normalizeProperty(item, index = 0) {
     imagenes: Array.isArray(item?.imagenes) ? item.imagenes.filter(Boolean) : [],
     destacadaEnPortada: Boolean(item?.destacadaEnPortada),
     publicada: item?.publicada !== false,
-    loteDelimitacion: normalizeLotBoundary(item?.loteDelimitacion, defaultLabel),
+    lotOverlay: normalizeLotOverlay(
+      item?.lotOverlay,
+      defaultLabel,
+      item?.loteDelimitacion
+    ),
     createdAt: String(item?.createdAt || new Date().toISOString()),
   };
 }
 
 function getDefaultProperties() {
   return MOCK_PROPERTIES.map((item, index) => normalizeProperty(item, index));
+}
+
+function notifyPropertiesChanged(items) {
+  listeners.forEach((listener) => {
+    try {
+      listener(items);
+    } catch {
+      // no-op
+    }
+  });
 }
 
 export function getProperties() {
@@ -72,14 +100,48 @@ export function saveProperties(items) {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(PROPERTIES_STORAGE_KEY, JSON.stringify(normalized));
   }
+  notifyPropertiesChanged(normalized);
   return normalized;
+}
+
+export function subscribeProperties(listener) {
+  if (typeof listener !== "function") return () => {};
+  listeners.add(listener);
+  listener(getProperties());
+  return () => listeners.delete(listener);
 }
 
 export function getPropertyBySlug(slug) {
   return getProperties().find((item) => item.slug === slug);
 }
 
-export function upsertProperty(property) {
+export async function syncPropertiesFromCloud({ force = false } = {}) {
+  if (typeof window === "undefined") return getProperties();
+  if (hasCloudSync && !force) return getProperties();
+  if (syncingPromise) return syncingPromise;
+
+  syncingPromise = (async () => {
+    try {
+      const remote = await fetchProperties();
+      if (Array.isArray(remote) && remote.length) {
+        const normalizedRemote = remote.map((item, index) => normalizeProperty(item, index));
+        saveProperties(normalizedRemote);
+      } else if (!window.localStorage.getItem(PROPERTIES_STORAGE_KEY)) {
+        saveProperties(getDefaultProperties());
+      }
+      hasCloudSync = true;
+      return getProperties();
+    } catch {
+      return getProperties();
+    } finally {
+      syncingPromise = null;
+    }
+  })();
+
+  return syncingPromise;
+}
+
+export async function upsertProperty(property) {
   const all = getProperties();
   const normalized = normalizeProperty(property);
   const existingIndex = all.findIndex((item) => item.id === normalized.id || item.slug === normalized.slug);
@@ -91,5 +153,11 @@ export function upsertProperty(property) {
   } else {
     all.unshift(normalized);
   }
-  return saveProperties(all);
+  const saved = saveProperties(all);
+  try {
+    await upsertPropertyById(normalized.id, normalized);
+  } catch {
+    // fallback local already done
+  }
+  return saved;
 }
