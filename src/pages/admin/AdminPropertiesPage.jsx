@@ -35,6 +35,7 @@ function ActionButton({
   to,
   primary = false,
   danger = false,
+  compact = false,
   children,
   external = false,
   className = "",
@@ -46,7 +47,8 @@ function ActionButton({
     : danger
     ? "border-[#D8C4C7] bg-[#F8F3F4] text-[#6F3F45] hover:border-[#B99EA3] hover:bg-[#F2EAEC]"
     : "border-stone bg-white text-ink hover:border-ink";
-  const resolvedClassName = `inline-flex items-center justify-center gap-1.5 border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName} ${className}`;
+  const sizeClassName = compact ? "px-2.5 py-1.5 text-[10px]" : "px-3 py-2 text-[11px]";
+  const resolvedClassName = `inline-flex items-center justify-center gap-1.5 border ${sizeClassName} font-semibold uppercase tracking-editorial transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName} ${className}`;
 
   if (external) {
     return (
@@ -81,7 +83,7 @@ export function AdminPropertiesPage() {
   }, []);
 
   const handleDeleteProperty = async (property) => {
-    const confirmed = window.confirm("¿Seguro que querés eliminar esta propiedad?");
+    const confirmed = window.confirm("Seguro que queres eliminar esta propiedad?");
     if (!confirmed) return;
 
     setDeletingId(property.id);
@@ -135,74 +137,87 @@ export function AdminPropertiesPage() {
         </div>
       ) : null}
 
-      <div className="hidden overflow-hidden border-fine bg-paper lg:block">
-        <table className="min-w-full text-left text-sm">
+      <div className="hidden overflow-hidden border-fine bg-paper xl:block">
+        <table className="w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col style={{ width: "38%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "13%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "7%" }} />
+            <col style={{ width: "19%" }} />
+          </colgroup>
           <thead className="border-b border-stone bg-surface">
             <tr>
-              <th className="px-4 py-3 font-medium">Propiedad</th>
-              <th className="px-4 py-3 font-medium">Operacion</th>
-              <th className="px-4 py-3 font-medium">Precio</th>
-              <th className="px-4 py-3 font-medium">Estado</th>
-              <th className="px-4 py-3 font-medium">Portada</th>
-              <th className="w-[290px] px-4 py-3 font-medium">Acciones</th>
+              <th className="px-3 py-3 font-medium">Propiedad</th>
+              <th className="px-3 py-3 font-medium">Operacion</th>
+              <th className="px-3 py-3 font-medium">Precio</th>
+              <th className="px-3 py-3 font-medium">Estado</th>
+              <th className="px-3 py-3 font-medium">Portada</th>
+              <th className="px-3 py-3 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {properties.map((property) => {
               const status = getStatusBadge(property.estado);
               return (
-                <tr key={property.id} className="border-b border-stone/70 align-top last:border-b-0">
-                  <td className="px-4 py-4">
-                    <div className="flex items-start gap-3">
+                <tr key={property.id} className="border-b border-stone/70 align-middle last:border-b-0">
+                  <td className="px-3 py-3">
+                    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3">
                       <img
                         src={property.imagenPrincipal}
                         alt={property.titulo}
-                        className="h-16 w-24 border border-stone object-cover"
+                        className="h-16 w-[88px] border border-stone object-cover"
                       />
-                      <div>
-                        <p className="font-semibold text-ink">{property.titulo}</p>
-                        <p className="text-xs text-slate">{property.ubicacion}</p>
-                        <p className="mt-1 text-xs uppercase tracking-editorial text-slate">
+                      <div className="min-w-0">
+                        <p className="break-words text-[15px] font-semibold leading-tight text-ink">{property.titulo}</p>
+                        <p className="mt-1 break-words text-xs leading-snug text-slate">{property.ubicacion}</p>
+                        <p className="mt-1.5 text-[11px] uppercase tracking-editorial text-slate">
                           {toTitle(property.tipoPropiedad)}
                         </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-4">{formatOperationLabel(property.tipoOperacion)}</td>
-                  <td className="px-4 py-4">
-                    {property.consultarPrecio
-                      ? "Consultar precio"
-                      : formatCurrency(property.precio, property.moneda)}
+                  <td className="px-3 py-3">
+                    <p className="break-words text-sm leading-snug text-ink">{formatOperationLabel(property.tipoOperacion)}</p>
                   </td>
-                  <td className="px-4 py-4">
+                  <td className="px-3 py-3">
+                    <p className="break-words text-sm leading-snug text-ink">
+                      {property.consultarPrecio
+                        ? "Consultar precio"
+                        : formatCurrency(property.precio, property.moneda)}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${status.className}`}
                     >
                       {status.label}
                     </span>
                   </td>
-                  <td className="px-4 py-4">{property.destacadaEnPortada ? "Si" : "No"}</td>
-                  <td className="w-[290px] px-4 py-4">
-                    <div className="flex items-center gap-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary>
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
-                            <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
-                          </svg>
-                          Editar
-                        </ActionButton>
-                        <ActionButton
-                          danger
-                          onClick={() => handleDeleteProperty(property)}
-                          disabled={deletingId === property.id}
-                        >
-                          <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
-                            <path d="M5 6h10M8 6V4h4v2m-5 0v9m3-9v9m3-9v9" stroke="currentColor" strokeWidth="1.3" />
-                          </svg>
-                          {deletingId === property.id ? "Eliminando..." : "Eliminar"}
-                        </ActionButton>
-                      </div>
-                      <ActionButton to={`/propiedades/${property.slug}`}>
+                  <td className="px-3 py-3">
+                    <span className="text-sm text-ink">{property.destacadaEnPortada ? "Si" : "No"}</span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2 2xl:flex-nowrap">
+                      <ActionButton to={`/admin/propiedades/${property.slug}/editar`} primary compact>
+                        <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                          <path d="m14.5 3.5 2 2L8 14H6v-2l8.5-8.5Z" stroke="currentColor" strokeWidth="1.3" />
+                        </svg>
+                        Editar
+                      </ActionButton>
+                      <ActionButton
+                        danger
+                        compact
+                        onClick={() => handleDeleteProperty(property)}
+                        disabled={deletingId === property.id}
+                      >
+                        <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+                          <path d="M5 6h10M8 6V4h4v2m-5 0v9m3-9v9m3-9v9" stroke="currentColor" strokeWidth="1.3" />
+                        </svg>
+                        {deletingId === property.id ? "Eliminando..." : "Eliminar"}
+                      </ActionButton>
+                      <ActionButton to={`/propiedades/${property.slug}`} compact className="ml-0 2xl:ml-auto">
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="M3 10h14M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" stroke="currentColor" strokeWidth="1.3" />
                         </svg>
@@ -217,7 +232,7 @@ export function AdminPropertiesPage() {
         </table>
       </div>
 
-      <div className="grid gap-3 lg:hidden">
+      <div className="grid gap-3 xl:hidden">
         {properties.map((property) => {
           const status = getStatusBadge(property.estado);
           return (
