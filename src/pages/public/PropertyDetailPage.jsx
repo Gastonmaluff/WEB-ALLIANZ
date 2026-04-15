@@ -28,7 +28,8 @@ export function PropertyDetailPage() {
   );
   const lotBoundary = property?.lotOverlay || property?.loteDelimitacion || {};
   const lotBoundaryImageUrl = lotBoundary?.imageUrl || property?.imagenPrincipal || "";
-  const isLotProperty = ["lote", "terreno"].includes(String(property?.tipoPropiedad || "").toLowerCase());
+  const hasLotBoundaryPoints = (lotBoundary?.points || []).length > 2;
+  const lotBoundaryEnabled = lotBoundary?.enabled === undefined ? hasLotBoundaryPoints : Boolean(lotBoundary?.enabled);
 
   if (!property) {
     return (
@@ -113,7 +114,7 @@ export function PropertyDetailPage() {
           </div>
         </div>
 
-        {isLotProperty && lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2 ? (
+        {lotBoundaryEnabled && lotBoundaryImageUrl && hasLotBoundaryPoints ? (
           <article className="space-y-4">
             <div>
               <p className="text-xs uppercase tracking-editorial text-slate">Delimitacion visual</p>

@@ -13,6 +13,7 @@ import { uploadPropertyImage } from "../../firebase/storage";
 import { emptyProperty, OPERATION_TYPES, PROPERTY_STATUS } from "../../models/propertyModel";
 import { ROUTES } from "../../router/paths";
 import { formatOperationLabel, slugify } from "../../utils/format";
+import { formatBytes, optimizeLotImage } from "../../utils/imageOptimization";
 import { normalizePolygonPoints } from "../../utils/polygon";
 
 const propertyTypes = ["Casa", "Departamento", "Lote", "Terreno", "Oficina"];
@@ -36,10 +37,15 @@ function normalizeExtraFeatures(items) {
 
 function normalizeLotOverlay(overlay, fallbackTitle = "", legacyBoundary = null) {
   const source = overlay || legacyBoundary || {};
+  const points = normalizePolygonPoints(source?.points || []);
   return {
     imageUrl: String(source?.imageUrl || "").trim(),
-    points: normalizePolygonPoints(source?.points || []),
+    points,
     closed: Boolean(source?.closed),
+    enabled:
+      source?.enabled === undefined
+        ? Boolean(String(source?.imageUrl || "").trim() || points.length > 0)
+        : Boolean(source?.enabled),
     strokeColor: String(source?.strokeColor || "#7DD3FC"),
     strokeWidth: Number(source?.strokeWidth || 0.75),
     fillColor: String(source?.fillColor || "#50BEFF"),
@@ -84,12 +90,15 @@ function normalizeProperty(foundProperty) {
   };
 }
 
-function FormSection({ title, description, children }) {
+function FormSection({ title, description, headerAction = null, children }) {
   return (
     <section className="admin-card space-y-3">
-      <div>
-        <h2 className="font-display text-3xl leading-none text-ink">{title}</h2>
-        {description ? <p className="mt-1.5 text-sm text-slate">{description}</p> : null}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-3xl leading-none text-ink">{title}</h2>
+          {description ? <p className="mt-1.5 text-sm text-slate">{description}</p> : null}
+        </div>
+        {headerAction}
       </div>
       {children}
     </section>
@@ -128,11 +137,10 @@ function validateForm(form) {
   if (form.googleMapsUrl && !/^https?:\/\//i.test(form.googleMapsUrl.trim())) {
     errors.googleMapsUrl = "La URL debe iniciar con http:// o https://";
   }
-  const isLot = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
-  if (isLot && form.lotOverlay?.imageUrl && !/^https?:\/|^data:image\//i.test(form.lotOverlay.imageUrl)) {
+  if (form.lotOverlay?.enabled && form.lotOverlay?.imageUrl && !/^https?:\/|^data:image\//i.test(form.lotOverlay.imageUrl)) {
     errors.loteImageUrl = "La imagen aerea debe ser URL valida o archivo cargado.";
   }
-  if (isLot && form.lotOverlay?.points?.length > 0 && form.lotOverlay.points.length < 3) {
+  if (form.lotOverlay?.enabled && form.lotOverlay?.points?.length > 0 && form.lotOverlay.points.length < 3) {
     errors.lotePoints = "El poligono necesita al menos 3 vertices.";
   }
 
@@ -145,9 +153,8 @@ export function AdminPropertyFormPage() {
   const isEdit = Boolean(editingProperty);
 
   const [form, setForm] = useState(() => normalizeProperty(editingProperty));
-  const [lotImageInput, setLotImageInput] = useState("");
   const [editorMode, setEditorMode] = useState(LOT_EDITOR_MODE.add);
-  const [previewVisible, setPreviewVisible] = useState(true);
+  const [previewReplayCount, setPreviewReplayCount] = useState(0);
   const [savingLotBoundary, setSavingLotBoundary] = useState(false);
   const [lotUploading, setLotUploading] = useState(false);
   const [propertyImagesUploading, setPropertyImagesUploading] = useState(false);
@@ -165,7 +172,6 @@ export function AdminPropertyFormPage() {
     () => uniqueImages([form.imagenPrincipal, ...form.imagenes]),
     [form.imagenPrincipal, form.imagenes]
   );
-  const isLotProperty = ["lote", "terreno"].includes(String(form.tipoPropiedad || "").toLowerCase());
 
   useEffect(() => {
     syncPropertiesFromCloud();
@@ -290,13 +296,6 @@ export function AdminPropertyFormPage() {
     setSaveFeedback("");
   };
 
-  const addLotImageUrl = () => {
-    const value = lotImageInput.trim();
-    if (!value) return;
-    updateLotBoundary({ imageUrl: value });
-    setLotImageInput("");
-  };
-
   const removeLotImage = () => {
     updateLotBoundary({ imageUrl: "", points: [], closed: false });
   };
@@ -305,11 +304,17 @@ export function AdminPropertyFormPage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setLotUploading(true);
+    setSaveFeedback("Optimizando imagen aerea...");
     try {
+      const { optimizedFile, meta } = await optimizeLotImage(file);
       const propertyKey = form.id || generatedSlug || `property-${Date.now()}`;
-      const remoteUrl = await uploadPropertyImage(file, `properties/${propertyKey}/lot-overlay`);
+      const remoteUrl = await uploadPropertyImage(optimizedFile, `properties/${propertyKey}/lot-overlay`);
       updateLotBoundary({ imageUrl: remoteUrl });
-      setSaveFeedback("Imagen aerea subida correctamente a Firebase Storage.");
+      setSaveFeedback(
+        `Imagen optimizada automaticamente para mejor rendimiento (${formatBytes(meta.originalBytes)} -> ${formatBytes(
+          meta.optimizedBytes
+        )}) y subida a Firebase Storage.`
+      );
     } catch {
       setSaveFeedback("No se pudo subir la imagen a Storage. Intenta nuevamente.");
     } finally {
@@ -323,7 +328,10 @@ export function AdminPropertyFormPage() {
   };
 
   const saveLotBoundaryOnly = async () => {
-    if (!isLotProperty) return;
+    if (!form.lotOverlay?.enabled) {
+      setSaveFeedback("Activa 'Habilitar delimitacion visual' para guardar esta configuracion.");
+      return;
+    }
     if (!form.lotOverlay?.imageUrl) {
       setSaveFeedback("Primero carga la imagen aerea.");
       return;
@@ -860,11 +868,21 @@ export function AdminPropertyFormPage() {
         <FormSection
           title="F. Delimitacion visual del lote"
           description="Marca vertices manualmente sobre imagen aerea y guarda la delimitacion."
+          headerAction={
+            <label className="inline-flex items-center gap-2 border border-stone bg-surface px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-slate">
+              <input
+                type="checkbox"
+                checked={Boolean(form.lotOverlay?.enabled)}
+                onChange={(event) => updateLotBoundary({ enabled: event.target.checked })}
+                className="h-4 w-4 accent-[#041B2C]"
+              />
+              Habilitar delimitacion visual
+            </label>
+          }
         >
-          {!isLotProperty ? (
+          {!form.lotOverlay?.enabled ? (
             <div className="border border-stone bg-surface p-4 text-sm text-slate">
-              Selecciona <span className="font-semibold text-ink">Tipo de propiedad = Lote o Terreno</span> para
-              habilitar esta herramienta en mobile y desktop.
+              Activa la opcion para delimitar visualmente cualquier propiedad (lote, casa o construccion existente).
             </div>
           ) : (
             <>
@@ -881,19 +899,17 @@ export function AdminPropertyFormPage() {
                     label="Imagen aerea del lote"
                     name="lotImageUrl"
                     error={errors.loteImageUrl}
-                    help={lotUploading ? "Subiendo imagen a Firebase Storage..." : "Puedes pegar una URL o cargar archivo desde la barra de acciones."}
+                    help={
+                      lotUploading
+                        ? "Procesando y subiendo imagen a Firebase Storage..."
+                        : "Carga por archivo para mantener calidad y rendimiento consistentes."
+                    }
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input
-                        id="lotImageUrl"
-                        value={lotImageInput}
-                        onChange={(event) => setLotImageInput(event.target.value)}
-                        className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                        placeholder="https://..."
-                      />
-                      <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
-                        Usar URL
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AppButton type="button" variant="ghost" onClick={requestLotImageUpload}>
+                        {lotUploading ? "Subiendo..." : "Subir imagen"}
                       </AppButton>
+                      <span className="text-xs text-slate">Solo carga por archivo.</span>
                     </div>
                   </Field>
 
@@ -908,10 +924,8 @@ export function AdminPropertyFormPage() {
                     fillColor={form.lotOverlay?.fillColor}
                     fillOpacity={form.lotOverlay?.fillOpacity}
                     onChange={(next) => updateLotBoundary(next)}
-                    onRequestImageUpload={requestLotImageUpload}
                     onRequestSave={saveLotBoundaryOnly}
-                    onTogglePreview={() => setPreviewVisible((prev) => !prev)}
-                    previewVisible={previewVisible}
+                    onRequestPreview={() => setPreviewReplayCount((prev) => prev + 1)}
                     isSaving={savingLotBoundary}
                   />
                   {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
@@ -925,10 +939,15 @@ export function AdminPropertyFormPage() {
                         <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
                       </ul>
                     </article>
-                    {previewVisible ? (
+                    {form.lotOverlay?.imageUrl ? (
                       <div className="space-y-2">
                         <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
-                        <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
+                        <LotBoundaryPreview
+                          key={`lot-preview-mobile-${previewReplayCount}-${form.lotOverlay?.points?.length || 0}-${form.lotOverlay?.closed ? "c" : "o"}`}
+                          overlay={form.lotOverlay}
+                          className="aspect-[16/10]"
+                          replayToken={previewReplayCount}
+                        />
                       </div>
                     ) : null}
                   </div>
@@ -1062,10 +1081,15 @@ export function AdminPropertyFormPage() {
                     />
                   </article>
 
-                  {previewVisible ? (
+                  {form.lotOverlay?.imageUrl ? (
                     <div className="space-y-2">
                       <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
-                      <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
+                      <LotBoundaryPreview
+                        key={`lot-preview-desktop-${previewReplayCount}-${form.lotOverlay?.points?.length || 0}-${form.lotOverlay?.closed ? "c" : "o"}`}
+                        overlay={form.lotOverlay}
+                        className="aspect-[16/10]"
+                        replayToken={previewReplayCount}
+                      />
                     </div>
                   ) : null}
 

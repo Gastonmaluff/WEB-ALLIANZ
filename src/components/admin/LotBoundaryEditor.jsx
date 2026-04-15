@@ -3,9 +3,10 @@ import { clampPercentage, normalizePolygonPoints, polygonPointsToString } from "
 
 export const LOT_EDITOR_MODE = {
   add: "add",
-  move: "move",
   delete: "delete",
 };
+
+const CLOSE_THRESHOLD = 2.6;
 
 function getPointerCoordinates(event, currentTarget) {
   const rect = currentTarget.getBoundingClientRect();
@@ -17,17 +18,31 @@ function getPointerCoordinates(event, currentTarget) {
   };
 }
 
-function ToolButton({ children, active = false, disabled = false, onClick }) {
+function getDistance(a, b) {
+  const dx = Number(a?.x || 0) - Number(b?.x || 0);
+  const dy = Number(a?.y || 0) - Number(b?.y || 0);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function ToolButton({
+  children,
+  active = false,
+  disabled = false,
+  primary = false,
+  onClick,
+}) {
+  const className = primary
+    ? "min-w-[172px] border-[#041B2C] bg-[#041B2C] px-5 py-2.5 text-[12px] text-white shadow-[0_8px_24px_-14px_rgba(4,27,44,0.9)] hover:bg-[#163649]"
+    : active
+    ? "border-[#041B2C] bg-[#041B2C] text-white"
+    : "border-stone bg-white text-ink hover:border-ink";
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${
-        active
-          ? "border-[#041B2C] bg-[#041B2C] text-white"
-          : "border-stone bg-white text-ink hover:border-ink"
-      } disabled:cursor-not-allowed disabled:opacity-50`}
+      className={`border px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial transition ${className} disabled:cursor-not-allowed disabled:opacity-50`}
     >
       {children}
     </button>
@@ -45,14 +60,14 @@ export function LotBoundaryEditor({
   mode = LOT_EDITOR_MODE.add,
   onModeChange,
   onChange,
-  onRequestImageUpload,
   onRequestSave,
-  onTogglePreview,
-  previewVisible = true,
+  onRequestPreview,
   isSaving = false,
 }) {
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
   const [draggingPointId, setDraggingPointId] = useState("");
+  const [selectedPointId, setSelectedPointId] = useState("");
+  const [pulsePointId, setPulsePointId] = useState("");
 
   const updatePoints = (nextPoints, nextClosed = closed) => {
     onChange?.({
@@ -61,16 +76,32 @@ export function LotBoundaryEditor({
     });
   };
 
+  const closePolygon = () => {
+    if (closed || normalizedPoints.length < 3) return;
+    updatePoints(normalizedPoints, true);
+  };
+
   const addPoint = (event) => {
-    if (!imageUrl || closed || mode !== LOT_EDITOR_MODE.add) return;
+    if (!imageUrl || mode !== LOT_EDITOR_MODE.add || closed) return;
     const coords = getPointerCoordinates(event, event.currentTarget);
-    const next = [...normalizedPoints, { id: `pt-${Date.now()}`, ...coords }];
+    const firstPoint = normalizedPoints[0];
+    if (firstPoint && normalizedPoints.length >= 3 && getDistance(coords, firstPoint) <= CLOSE_THRESHOLD) {
+      closePolygon();
+      return;
+    }
+
+    const nextPointId = `pt-${Date.now()}`;
+    const next = [...normalizedPoints, { id: nextPointId, ...coords }];
+    setSelectedPointId(nextPointId);
+    setPulsePointId(nextPointId);
+    window.setTimeout(() => setPulsePointId((current) => (current === nextPointId ? "" : current)), 260);
     updatePoints(next, false);
   };
 
   const startDrag = (pointId) => (event) => {
-    if (mode !== LOT_EDITOR_MODE.move) return;
+    if (mode === LOT_EDITOR_MODE.delete || closed) return;
     event.stopPropagation();
+    setSelectedPointId(pointId);
     setDraggingPointId(pointId);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
@@ -80,7 +111,7 @@ export function LotBoundaryEditor({
   };
 
   const onPointerMove = (event) => {
-    if (!draggingPointId || mode !== LOT_EDITOR_MODE.move) return;
+    if (!draggingPointId || mode === LOT_EDITOR_MODE.delete || closed) return;
     const coords = getPointerCoordinates(event, event.currentTarget);
     updatePoints(
       normalizedPoints.map((point) => (point.id === draggingPointId ? { ...point, ...coords } : point)),
@@ -88,32 +119,41 @@ export function LotBoundaryEditor({
     );
   };
 
-  const closePolygon = () => {
-    if (normalizedPoints.length < 3) return;
-    updatePoints(normalizedPoints, true);
-  };
-
   const reopenPolygon = () => {
     updatePoints(normalizedPoints, false);
   };
 
   const clearPolygon = () => {
+    if (!normalizedPoints.length) return;
+    const confirmed = window.confirm("Se va a reiniciar la delimitacion. Queres continuar?");
+    if (!confirmed) return;
+    setSelectedPointId("");
     updatePoints([], false);
   };
 
   const removePoint = (pointId) => {
     const next = normalizedPoints.filter((point) => point.id !== pointId);
+    setSelectedPointId((current) => (current === pointId ? "" : current));
     updatePoints(next, next.length > 2 && closed);
   };
 
-  const onPointClick = (pointId) => (event) => {
+  const onPointClick = (pointId, index) => (event) => {
     event.stopPropagation();
-    if (mode === LOT_EDITOR_MODE.delete) removePoint(pointId);
+    setSelectedPointId(pointId);
+    if (mode === LOT_EDITOR_MODE.delete) {
+      removePoint(pointId);
+      return;
+    }
+    const isFirstPoint = index === 0;
+    if (!closed && isFirstPoint && normalizedPoints.length >= 3) {
+      closePolygon();
+    }
   };
 
   const updatePointValue = (pointId, axis, rawValue) => {
     const numeric = clampPercentage(rawValue);
     const value = Number(numeric.toFixed(2));
+    setSelectedPointId(pointId);
     updatePoints(
       normalizedPoints.map((point) => (point.id === pointId ? { ...point, [axis]: value } : point)),
       closed
@@ -121,29 +161,16 @@ export function LotBoundaryEditor({
   };
 
   const pointsString = polygonPointsToString(normalizedPoints);
-  const cursorClass = mode === LOT_EDITOR_MODE.add ? "cursor-crosshair" : "cursor-default";
-  const pointCursor =
-    mode === LOT_EDITOR_MODE.move
-      ? "cursor-grab active:cursor-grabbing"
-      : mode === LOT_EDITOR_MODE.delete
-      ? "cursor-not-allowed"
-      : "cursor-pointer";
+  const cursorClass = mode === LOT_EDITOR_MODE.add ? "cursor-crosshair" : "cursor-not-allowed";
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <ToolButton onClick={onRequestImageUpload}>Subir imagen</ToolButton>
         <ToolButton active={mode === LOT_EDITOR_MODE.add} onClick={() => onModeChange?.(LOT_EDITOR_MODE.add)}>
           Agregar puntos
         </ToolButton>
-        <ToolButton active={mode === LOT_EDITOR_MODE.move} onClick={() => onModeChange?.(LOT_EDITOR_MODE.move)}>
-          Mover puntos
-        </ToolButton>
         <ToolButton active={mode === LOT_EDITOR_MODE.delete} onClick={() => onModeChange?.(LOT_EDITOR_MODE.delete)}>
           Eliminar punto
-        </ToolButton>
-        <ToolButton onClick={closePolygon} disabled={closed || normalizedPoints.length < 3}>
-          Cerrar poligono
         </ToolButton>
         <ToolButton onClick={reopenPolygon} disabled={!closed}>
           Reabrir
@@ -151,15 +178,19 @@ export function LotBoundaryEditor({
         <ToolButton onClick={clearPolygon} disabled={!normalizedPoints.length}>
           Reiniciar
         </ToolButton>
-        <ToolButton onClick={onTogglePreview} active={previewVisible}>
+        <ToolButton onClick={onRequestPreview} disabled={!imageUrl || normalizedPoints.length < 3}>
           Vista previa
         </ToolButton>
-        <ToolButton onClick={onRequestSave} disabled={!imageUrl || isSaving}>
+        <ToolButton primary onClick={onRequestSave} disabled={!imageUrl || isSaving}>
           {isSaving ? "Guardando..." : "Guardar delimitacion"}
         </ToolButton>
       </div>
 
-      <div className="relative overflow-hidden border border-stone bg-[#0A2032]">
+      <div className="rounded-sm border border-stone bg-surface px-3 py-2 text-[11px] uppercase tracking-editorial text-slate">
+        Click para agregar puntos. Arrastra para ajustar. Cierra el poligono tocando el punto inicial.
+      </div>
+
+      <div className="relative aspect-[16/10] overflow-hidden border border-stone bg-[#0A2032]">
         {imageUrl ? (
           <>
             <img src={imageUrl} alt="Editor de delimitacion del lote" className="h-full w-full object-cover" />
@@ -171,6 +202,7 @@ export function LotBoundaryEditor({
               onPointerMove={onPointerMove}
               onPointerUp={endDrag}
               onPointerLeave={endDrag}
+              onPointerCancel={endDrag}
             >
               {closed && normalizedPoints.length > 2 ? (
                 <polygon
@@ -191,42 +223,62 @@ export function LotBoundaryEditor({
                 />
               ) : null}
 
-              {normalizedPoints.map((point, index) => (
-                <g key={point.id}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="1.35"
-                    fill="#03121F"
-                    stroke="#E0F2FE"
-                    strokeWidth="0.35"
-                    className={pointCursor}
-                    onPointerDown={startDrag(point.id)}
-                    onClick={onPointClick(point.id)}
-                  />
-                  <text
-                    x={point.x + 1.6}
-                    y={point.y - 1.1}
-                    fill="#E0F2FE"
-                    fontSize="2.3"
-                    fontFamily="Manrope, sans-serif"
-                  >
-                    {index + 1}
-                  </text>
-                </g>
-              ))}
+              {normalizedPoints.map((point, index) => {
+                const isFirst = index === 0;
+                const isSelected = selectedPointId === point.id;
+                const isPulsing = pulsePointId === point.id;
+
+                return (
+                  <g key={point.id}>
+                    {isPulsing ? (
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r="1.9"
+                        fill="none"
+                        stroke="#E0F2FE"
+                        strokeWidth="0.3"
+                        className="animate-ping"
+                      />
+                    ) : null}
+                    {isFirst ? (
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={isSelected ? "1.55" : "1.3"}
+                        fill="none"
+                        stroke="#E0F2FE"
+                        strokeWidth={isSelected ? "0.45" : "0.35"}
+                      />
+                    ) : null}
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={isSelected ? "1.08" : "0.92"}
+                      fill={isFirst ? "#D9ECF9" : "#03121F"}
+                      stroke="#E0F2FE"
+                      strokeWidth={isSelected ? "0.45" : "0.33"}
+                      className={mode === LOT_EDITOR_MODE.delete ? "cursor-not-allowed" : "cursor-pointer"}
+                      onPointerDown={startDrag(point.id)}
+                      onClick={onPointClick(point.id, index)}
+                    />
+                    <text
+                      x={point.x + 1.4}
+                      y={point.y - 1}
+                      fill="#E0F2FE"
+                      fontSize="2.15"
+                      fontFamily="Manrope, sans-serif"
+                    >
+                      {index + 1}
+                    </text>
+                  </g>
+                );
+              })}
             </svg>
           </>
         ) : (
-          <div className="flex h-56 flex-col items-center justify-center gap-3 px-5 text-center text-sm text-slate">
-            <p>Carga una imagen para comenzar a marcar vertices del lote.</p>
-            <button
-              type="button"
-              onClick={onRequestImageUpload}
-              className="border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:border-ink"
-            >
-              Subir imagen aerea
-            </button>
+          <div className="flex h-full items-center justify-center px-5 text-center text-sm text-slate">
+            Carga una imagen para comenzar a marcar vertices del lote.
           </div>
         )}
       </div>

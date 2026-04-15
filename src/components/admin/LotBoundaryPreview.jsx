@@ -1,8 +1,10 @@
 import { LotBoundaryOverlay } from "../common/LotBoundaryOverlay";
 
-export function LotBoundaryPreview({ overlay, className = "" }) {
+export function LotBoundaryPreview({ overlay, className = "", replayToken = 0 }) {
+  const forceMountReplay = Number.isFinite(Number(replayToken));
   return (
     <LotBoundaryOverlay
+      key={`lot-boundary-preview-${replayToken}`}
       imageUrl={overlay?.imageUrl}
       points={overlay?.points || []}
       closed={Boolean(overlay?.closed)}
@@ -16,9 +18,9 @@ export function LotBoundaryPreview({ overlay, className = "" }) {
       fillOpacity={overlay?.fillOpacity}
       animate={overlay?.animate !== false}
       animationDuration={overlay?.animationDuration}
-      animateOnView={overlay?.animateOnView !== false}
-      animateOnce={overlay?.animateOnce !== false}
-      trigger={overlay?.animateOnView !== false ? "viewport" : "mount"}
+      animateOnView={forceMountReplay ? false : overlay?.animateOnView !== false}
+      animateOnce={forceMountReplay ? false : overlay?.animateOnce !== false}
+      trigger={forceMountReplay ? "mount" : overlay?.animateOnView !== false ? "viewport" : "mount"}
       className={className}
     />
   );

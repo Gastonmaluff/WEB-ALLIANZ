@@ -12,10 +12,15 @@ let hasCloudSync = false;
 
 function normalizeLotOverlay(overlay, fallbackLabel = "", legacyBoundary = null) {
   const source = overlay || legacyBoundary || {};
+  const points = normalizePolygonPoints(source?.points || []);
   return {
     imageUrl: String(source?.imageUrl || "").trim(),
-    points: normalizePolygonPoints(source?.points || []),
+    points,
     closed: Boolean(source?.closed),
+    enabled:
+      source?.enabled === undefined
+        ? Boolean(String(source?.imageUrl || "").trim() || points.length > 0)
+        : Boolean(source?.enabled),
     strokeColor: String(source?.strokeColor || "#7DD3FC"),
     strokeWidth: Number(source?.strokeWidth || 0.75),
     fillColor: String(source?.fillColor || "#50BEFF"),

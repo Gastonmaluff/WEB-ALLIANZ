@@ -25,6 +25,7 @@ export const emptyProperty = {
   destacadaEnPortada: false,
   publicada: true,
   lotOverlay: {
+    enabled: false,
     imageUrl: "",
     points: [],
     closed: false,
