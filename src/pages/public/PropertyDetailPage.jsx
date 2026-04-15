@@ -27,6 +27,7 @@ export function PropertyDetailPage() {
     (item) => item?.label && String(item.label).trim() && item?.value !== undefined && item?.value !== null && String(item.value).trim()
   );
   const lotBoundary = property?.lotOverlay || property?.loteDelimitacion || {};
+  const lotBoundaryImageUrl = lotBoundary?.imageUrl || property?.imagenPrincipal || "";
   const isLotProperty = ["lote", "terreno"].includes(String(property?.tipoPropiedad || "").toLowerCase());
 
   if (!property) {
@@ -112,7 +113,7 @@ export function PropertyDetailPage() {
           </div>
         </div>
 
-        {isLotProperty && lotBoundary?.imageUrl ? (
+        {isLotProperty && lotBoundaryImageUrl && (lotBoundary?.points || []).length > 2 ? (
           <article className="space-y-4">
             <div>
               <p className="text-xs uppercase tracking-editorial text-slate">Delimitacion visual</p>
@@ -126,9 +127,10 @@ export function PropertyDetailPage() {
             <LotBoundaryPublicOverlay
               overlay={{
                 ...lotBoundary,
+                imageUrl: lotBoundaryImageUrl,
                 labelTitle: lotBoundary?.labelTitle || (property.superficie ? `${property.superficie} m2` : ""),
               }}
-              className="aspect-[16/9]"
+              className="aspect-[4/3] md:aspect-[16/9]"
             />
           </article>
         ) : null}

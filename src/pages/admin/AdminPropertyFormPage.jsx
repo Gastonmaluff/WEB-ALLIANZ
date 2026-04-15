@@ -857,60 +857,84 @@ export function AdminPropertyFormPage() {
           </div>
         </FormSection>
 
-        {isLotProperty ? (
-          <FormSection
-            title="F. Delimitacion visual del lote"
-            description="Marca vertices manualmente sobre imagen aerea y guarda la delimitacion."
-          >
-            <input
-              ref={lotImageFileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleLotImageFile}
-            />
-            <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
-              <div className="space-y-3">
-                <Field
-                  label="Imagen aerea del lote"
-                  name="lotImageUrl"
-                  error={errors.loteImageUrl}
-                  help={lotUploading ? "Subiendo imagen a Firebase Storage..." : "Puedes pegar una URL o cargar archivo desde la barra de acciones."}
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      id="lotImageUrl"
-                      value={lotImageInput}
-                      onChange={(event) => setLotImageInput(event.target.value)}
-                      className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
-                      placeholder="https://..."
-                    />
-                    <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
-                      Usar URL
-                    </AppButton>
+        <FormSection
+          title="F. Delimitacion visual del lote"
+          description="Marca vertices manualmente sobre imagen aerea y guarda la delimitacion."
+        >
+          {!isLotProperty ? (
+            <div className="border border-stone bg-surface p-4 text-sm text-slate">
+              Selecciona <span className="font-semibold text-ink">Tipo de propiedad = Lote o Terreno</span> para
+              habilitar esta herramienta en mobile y desktop.
+            </div>
+          ) : (
+            <>
+              <input
+                ref={lotImageFileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLotImageFile}
+              />
+              <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+                <div className="space-y-3">
+                  <Field
+                    label="Imagen aerea del lote"
+                    name="lotImageUrl"
+                    error={errors.loteImageUrl}
+                    help={lotUploading ? "Subiendo imagen a Firebase Storage..." : "Puedes pegar una URL o cargar archivo desde la barra de acciones."}
+                  >
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        id="lotImageUrl"
+                        value={lotImageInput}
+                        onChange={(event) => setLotImageInput(event.target.value)}
+                        className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+                        placeholder="https://..."
+                      />
+                      <AppButton type="button" variant="ghost" onClick={addLotImageUrl}>
+                        Usar URL
+                      </AppButton>
+                    </div>
+                  </Field>
+
+                  <LotBoundaryEditor
+                    imageUrl={form.lotOverlay?.imageUrl}
+                    points={form.lotOverlay?.points || []}
+                    closed={Boolean(form.lotOverlay?.closed)}
+                    mode={editorMode}
+                    onModeChange={setEditorMode}
+                    strokeColor={form.lotOverlay?.strokeColor}
+                    strokeWidth={form.lotOverlay?.strokeWidth}
+                    fillColor={form.lotOverlay?.fillColor}
+                    fillOpacity={form.lotOverlay?.fillOpacity}
+                    onChange={(next) => updateLotBoundary(next)}
+                    onRequestImageUpload={requestLotImageUpload}
+                    onRequestSave={saveLotBoundaryOnly}
+                    onTogglePreview={() => setPreviewVisible((prev) => !prev)}
+                    previewVisible={previewVisible}
+                    isSaving={savingLotBoundary}
+                  />
+                  {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
+
+                  <div className="space-y-2 lg:hidden">
+                    <article className="border border-stone bg-surface p-4">
+                      <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
+                      <ul className="mt-2 space-y-1 text-sm text-ink">
+                        <li>Imagen cargada: {form.lotOverlay?.imageUrl ? "Si" : "No"}</li>
+                        <li>Puntos: {(form.lotOverlay?.points || []).length}</li>
+                        <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
+                      </ul>
+                    </article>
+                    {previewVisible ? (
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
+                        <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
+                      </div>
+                    ) : null}
                   </div>
-                </Field>
+                </div>
 
-                <LotBoundaryEditor
-                  imageUrl={form.lotOverlay?.imageUrl}
-                  points={form.lotOverlay?.points || []}
-                  closed={Boolean(form.lotOverlay?.closed)}
-                  mode={editorMode}
-                  onModeChange={setEditorMode}
-                  strokeColor={form.lotOverlay?.strokeColor}
-                  strokeWidth={form.lotOverlay?.strokeWidth}
-                  fillColor={form.lotOverlay?.fillColor}
-                  fillOpacity={form.lotOverlay?.fillOpacity}
-                  onChange={(next) => updateLotBoundary(next)}
-                  onRequestImageUpload={requestLotImageUpload}
-                  onRequestSave={saveLotBoundaryOnly}
-                  onTogglePreview={() => setPreviewVisible((prev) => !prev)}
-                  previewVisible={previewVisible}
-                  isSaving={savingLotBoundary}
-                />
-                {errors.lotePoints ? <p className="text-xs text-[#7A2A2A]">{errors.lotePoints}</p> : null}
-
-                <div className="space-y-2 lg:hidden">
+                <div className="hidden space-y-3 lg:block">
                   <article className="border border-stone bg-surface p-4">
                     <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
                     <ul className="mt-2 space-y-1 text-sm text-ink">
@@ -919,163 +943,146 @@ export function AdminPropertyFormPage() {
                       <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
                     </ul>
                   </article>
+
+                  <article className="border border-stone bg-surface p-4 space-y-3">
+                    <p className="text-[11px] uppercase tracking-editorial text-slate">Apariencia</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                        Color linea
+                        <input
+                          type="color"
+                          value={form.lotOverlay?.strokeColor || "#7DD3FC"}
+                          onChange={(event) => updateLotBoundary({ strokeColor: event.target.value })}
+                          className="h-10 w-full border border-stone bg-white p-1"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                        Grosor linea
+                        <input
+                          type="number"
+                          min="0.2"
+                          max="4"
+                          step="0.05"
+                          value={form.lotOverlay?.strokeWidth || 0.75}
+                          onChange={(event) => updateLotBoundary({ strokeWidth: Number(event.target.value) })}
+                          className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                        Color relleno
+                        <input
+                          type="color"
+                          value={form.lotOverlay?.fillColor || "#50BEFF"}
+                          onChange={(event) => updateLotBoundary({ fillColor: event.target.value })}
+                          className="h-10 w-full border border-stone bg-white p-1"
+                        />
+                      </label>
+                      <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
+                        Opacidad relleno
+                        <input
+                          type="number"
+                          min="0"
+                          max="1"
+                          step="0.05"
+                          value={form.lotOverlay?.fillOpacity ?? 0.18}
+                          onChange={(event) => updateLotBoundary({ fillOpacity: Number(event.target.value) })}
+                          className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                        />
+                      </label>
+                    </div>
+                  </article>
+
+                  <article className="border border-stone bg-surface p-4 space-y-3">
+                    <p className="text-[11px] uppercase tracking-editorial text-slate">Animacion</p>
+                    <div className="space-y-2 text-sm text-ink">
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={form.lotOverlay?.animate !== false}
+                          onChange={(event) => updateLotBoundary({ animate: event.target.checked })}
+                          className="h-4 w-4 accent-[#041B2C]"
+                        />
+                        Activar animacion
+                      </label>
+                      <label className="space-y-1 block text-xs uppercase tracking-editorial text-slate">
+                        Duracion (seg)
+                        <input
+                          type="number"
+                          min="0.5"
+                          max="6"
+                          step="0.1"
+                          value={form.lotOverlay?.animationDuration || 1.35}
+                          onChange={(event) => updateLotBoundary({ animationDuration: Number(event.target.value) })}
+                          className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                        />
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={form.lotOverlay?.animateOnView !== false}
+                          onChange={(event) => updateLotBoundary({ animateOnView: event.target.checked })}
+                          className="h-4 w-4 accent-[#041B2C]"
+                        />
+                        Reproducir al entrar en viewport
+                      </label>
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={form.lotOverlay?.animateOnce !== false}
+                          onChange={(event) => updateLotBoundary({ animateOnce: event.target.checked })}
+                          className="h-4 w-4 accent-[#041B2C]"
+                        />
+                        Reproducir una sola vez
+                      </label>
+                    </div>
+                  </article>
+
+                  <article className="border border-stone bg-surface p-4 space-y-3">
+                    <p className="text-[11px] uppercase tracking-editorial text-slate">Etiqueta</p>
+                    <label className="inline-flex items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={form.lotOverlay?.showLabel !== false}
+                        onChange={(event) => updateLotBoundary({ showLabel: event.target.checked })}
+                        className="h-4 w-4 accent-[#041B2C]"
+                      />
+                      Mostrar etiqueta
+                    </label>
+                    <input
+                      value={form.lotOverlay?.labelTitle || ""}
+                      onChange={(event) => updateLotBoundary({ labelTitle: event.target.value })}
+                      placeholder="Titulo"
+                      className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
+                    <input
+                      value={form.lotOverlay?.labelSubtitle || ""}
+                      onChange={(event) => updateLotBoundary({ labelSubtitle: event.target.value })}
+                      placeholder="Subtitulo"
+                      className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
+                    />
+                  </article>
+
                   {previewVisible ? (
                     <div className="space-y-2">
                       <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
                       <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
                     </div>
                   ) : null}
+
+                  {form.lotOverlay?.imageUrl ? (
+                    <button
+                      type="button"
+                      onClick={removeLotImage}
+                      className="inline-flex items-center justify-center border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
+                    >
+                      Quitar imagen y delimitacion
+                    </button>
+                  ) : null}
                 </div>
               </div>
-
-              <div className="hidden space-y-3 lg:block">
-                <article className="border border-stone bg-surface p-4">
-                  <p className="text-[11px] uppercase tracking-editorial text-slate">Estado</p>
-                  <ul className="mt-2 space-y-1 text-sm text-ink">
-                    <li>Imagen cargada: {form.lotOverlay?.imageUrl ? "Si" : "No"}</li>
-                    <li>Puntos: {(form.lotOverlay?.points || []).length}</li>
-                    <li>Poligono cerrado: {form.lotOverlay?.closed ? "Si" : "No"}</li>
-                  </ul>
-                </article>
-
-                <article className="border border-stone bg-surface p-4 space-y-3">
-                  <p className="text-[11px] uppercase tracking-editorial text-slate">Apariencia</p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
-                      Color linea
-                      <input
-                        type="color"
-                        value={form.lotOverlay?.strokeColor || "#7DD3FC"}
-                        onChange={(event) => updateLotBoundary({ strokeColor: event.target.value })}
-                        className="h-10 w-full border border-stone bg-white p-1"
-                      />
-                    </label>
-                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
-                      Grosor linea
-                      <input
-                        type="number"
-                        min="0.2"
-                        max="4"
-                        step="0.05"
-                        value={form.lotOverlay?.strokeWidth || 0.75}
-                        onChange={(event) => updateLotBoundary({ strokeWidth: Number(event.target.value) })}
-                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-                      />
-                    </label>
-                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
-                      Color relleno
-                      <input
-                        type="color"
-                        value={form.lotOverlay?.fillColor || "#50BEFF"}
-                        onChange={(event) => updateLotBoundary({ fillColor: event.target.value })}
-                        className="h-10 w-full border border-stone bg-white p-1"
-                      />
-                    </label>
-                    <label className="space-y-1 text-xs uppercase tracking-editorial text-slate">
-                      Opacidad relleno
-                      <input
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={form.lotOverlay?.fillOpacity ?? 0.18}
-                        onChange={(event) => updateLotBoundary({ fillOpacity: Number(event.target.value) })}
-                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-                      />
-                    </label>
-                  </div>
-                </article>
-
-                <article className="border border-stone bg-surface p-4 space-y-3">
-                  <p className="text-[11px] uppercase tracking-editorial text-slate">Animacion</p>
-                  <div className="space-y-2 text-sm text-ink">
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.lotOverlay?.animate !== false}
-                        onChange={(event) => updateLotBoundary({ animate: event.target.checked })}
-                        className="h-4 w-4 accent-[#041B2C]"
-                      />
-                      Activar animacion
-                    </label>
-                    <label className="space-y-1 block text-xs uppercase tracking-editorial text-slate">
-                      Duracion (seg)
-                      <input
-                        type="number"
-                        min="0.5"
-                        max="6"
-                        step="0.1"
-                        value={form.lotOverlay?.animationDuration || 1.35}
-                        onChange={(event) => updateLotBoundary({ animationDuration: Number(event.target.value) })}
-                        className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-                      />
-                    </label>
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.lotOverlay?.animateOnView !== false}
-                        onChange={(event) => updateLotBoundary({ animateOnView: event.target.checked })}
-                        className="h-4 w-4 accent-[#041B2C]"
-                      />
-                      Reproducir al entrar en viewport
-                    </label>
-                    <label className="inline-flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={form.lotOverlay?.animateOnce !== false}
-                        onChange={(event) => updateLotBoundary({ animateOnce: event.target.checked })}
-                        className="h-4 w-4 accent-[#041B2C]"
-                      />
-                      Reproducir una sola vez
-                    </label>
-                  </div>
-                </article>
-
-                <article className="border border-stone bg-surface p-4 space-y-3">
-                  <p className="text-[11px] uppercase tracking-editorial text-slate">Etiqueta</p>
-                  <label className="inline-flex items-center gap-2 text-sm text-ink">
-                    <input
-                      type="checkbox"
-                      checked={form.lotOverlay?.showLabel !== false}
-                      onChange={(event) => updateLotBoundary({ showLabel: event.target.checked })}
-                      className="h-4 w-4 accent-[#041B2C]"
-                    />
-                    Mostrar etiqueta
-                  </label>
-                  <input
-                    value={form.lotOverlay?.labelTitle || ""}
-                    onChange={(event) => updateLotBoundary({ labelTitle: event.target.value })}
-                    placeholder="Titulo"
-                    className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-                  />
-                  <input
-                    value={form.lotOverlay?.labelSubtitle || ""}
-                    onChange={(event) => updateLotBoundary({ labelSubtitle: event.target.value })}
-                    placeholder="Subtitulo"
-                    className="w-full border border-stone bg-white px-3 py-2 text-sm outline-none focus:border-ink"
-                  />
-                </article>
-
-                {previewVisible ? (
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-editorial text-slate">Vista previa</p>
-                    <LotBoundaryPreview overlay={form.lotOverlay} className="aspect-[16/10]" />
-                  </div>
-                ) : null}
-
-                {form.lotOverlay?.imageUrl ? (
-                  <button
-                    type="button"
-                    onClick={removeLotImage}
-                    className="inline-flex items-center justify-center border border-[#7A2A2A]/35 bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-[#7A2A2A] transition hover:border-[#7A2A2A]"
-                  >
-                    Quitar imagen y delimitacion
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </FormSection>
-        ) : null}
+            </>
+          )}
+        </FormSection>
 
         <FormSection title="G. Visibilidad" description="Controla presencia en portada y publicacion general.">
           <div className="grid gap-4 sm:grid-cols-2">

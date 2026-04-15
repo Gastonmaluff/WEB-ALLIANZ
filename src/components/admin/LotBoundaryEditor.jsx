@@ -218,8 +218,15 @@ export function LotBoundaryEditor({
             </svg>
           </>
         ) : (
-          <div className="flex h-56 items-center justify-center px-5 text-center text-sm text-slate">
-            Carga una imagen para comenzar a marcar vertices del lote.
+          <div className="flex h-56 flex-col items-center justify-center gap-3 px-5 text-center text-sm text-slate">
+            <p>Carga una imagen para comenzar a marcar vertices del lote.</p>
+            <button
+              type="button"
+              onClick={onRequestImageUpload}
+              className="border border-stone bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-editorial text-ink transition hover:border-ink"
+            >
+              Subir imagen aerea
+            </button>
           </div>
         )}
       </div>
