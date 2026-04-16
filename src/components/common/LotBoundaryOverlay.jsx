@@ -31,10 +31,36 @@ export function LotBoundaryOverlay({
   const rootRef = useRef(null);
   const inView = useInView(rootRef, { once: animateOnce, margin: "-10% 0px -10% 0px" });
   const [replayTick, setReplayTick] = useState(0);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [imageNaturalSize, setImageNaturalSize] = useState({ width: 0, height: 0 });
   const normalizedPoints = useMemo(() => normalizePolygonPoints(points), [points]);
-  const pointsString = useMemo(() => polygonPointsToString(normalizedPoints), [normalizedPoints]);
-  const pathD = useMemo(() => polygonPathD(normalizedPoints, closed), [normalizedPoints, closed]);
-  const centroid = useMemo(() => polygonCentroid(normalizedPoints), [normalizedPoints]);
+  const transformedPoints = useMemo(() => {
+    const cw = Number(containerSize.width || 0);
+    const ch = Number(containerSize.height || 0);
+    const iw = Number(imageNaturalSize.width || 0);
+    const ih = Number(imageNaturalSize.height || 0);
+
+    if (!cw || !ch || !iw || !ih) return normalizedPoints;
+
+    const scale = Math.max(cw / iw, ch / ih);
+    const renderedWidth = iw * scale;
+    const renderedHeight = ih * scale;
+    const offsetX = (cw - renderedWidth) / 2;
+    const offsetY = (ch - renderedHeight) / 2;
+
+    const scaleXPercent = renderedWidth / cw;
+    const scaleYPercent = renderedHeight / ch;
+    const offsetXPercent = (offsetX / cw) * 100;
+    const offsetYPercent = (offsetY / ch) * 100;
+
+    return normalizedPoints.map((point) => ({
+      x: offsetXPercent + point.x * scaleXPercent,
+      y: offsetYPercent + point.y * scaleYPercent,
+    }));
+  }, [normalizedPoints, imageNaturalSize.width, imageNaturalSize.height, containerSize.width, containerSize.height]);
+  const pointsString = useMemo(() => polygonPointsToString(transformedPoints), [transformedPoints]);
+  const pathD = useMemo(() => polygonPathD(transformedPoints, closed), [transformedPoints, closed]);
+  const centroid = useMemo(() => polygonCentroid(transformedPoints), [transformedPoints]);
   const resolvedLabelTitle = String(labelTitle || label || "").trim();
   const resolvedLabelSubtitle = String(labelSubtitle || "").trim();
   const resolvedFillOpacity = Number.isFinite(Number(fillOpacity))
@@ -57,6 +83,58 @@ export function LotBoundaryOverlay({
     }, Number(replayIntervalMs));
     return () => window.clearInterval(intervalId);
   }, [canReplay, replayIntervalMs]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const target = rootRef.current;
+    if (!target) return undefined;
+
+    const syncSize = () => {
+      const rect = target.getBoundingClientRect();
+      setContainerSize({
+        width: rect.width || 0,
+        height: rect.height || 0,
+      });
+    };
+
+    syncSize();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncSize);
+      return () => window.removeEventListener("resize", syncSize);
+    }
+
+    const observer = new ResizeObserver(() => syncSize());
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!imageUrl || typeof window === "undefined") {
+      setImageNaturalSize({ width: 0, height: 0 });
+      return undefined;
+    }
+
+    let active = true;
+    const image = new window.Image();
+    image.decoding = "async";
+    image.onload = () => {
+      if (!active) return;
+      setImageNaturalSize({
+        width: image.naturalWidth || 0,
+        height: image.naturalHeight || 0,
+      });
+    };
+    image.onerror = () => {
+      if (!active) return;
+      setImageNaturalSize({ width: 0, height: 0 });
+    };
+    image.src = imageUrl;
+
+    return () => {
+      active = false;
+    };
+  }, [imageUrl]);
 
   if (!imageUrl) {
     return (
