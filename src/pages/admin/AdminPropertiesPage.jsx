@@ -49,7 +49,7 @@ function ActionButton({
     : danger
     ? "border-[#D8C4C7] bg-[#F8F3F4] text-[#6F3F45] hover:border-[#B99EA3] hover:bg-[#F2EAEC]"
     : "border-stone bg-white text-ink hover:border-ink";
-  const sizeClassName = compact ? "px-2 py-1.5 text-[10px]" : "px-3 py-2 text-[11px]";
+  const sizeClassName = compact ? "px-2 py-1.5 text-[9.5px]" : "px-3 py-2 text-[11px]";
   const resolvedClassName = `inline-flex items-center justify-center gap-1.5 border ${sizeClassName} font-semibold uppercase tracking-editorial transition whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60 ${variantClassName} ${className}`;
 
   if (external) {
@@ -156,11 +156,11 @@ export function AdminPropertiesPage() {
       <div className="hidden overflow-hidden border-fine bg-paper xl:block">
         <table className="w-full table-fixed text-left text-sm">
           <colgroup>
-            <col style={{ width: "43%" }} />
-            <col style={{ width: "13%" }} />
+            <col style={{ width: "40%" }} />
+            <col style={{ width: "11%" }} />
             <col style={{ width: "14%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "18%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "24%" }} />
           </colgroup>
           <thead className="border-b border-stone bg-surface">
             <tr>
@@ -177,14 +177,14 @@ export function AdminPropertiesPage() {
               return (
                 <tr key={property.id} className="border-b border-stone/70 align-middle last:border-b-0">
                   <td className="px-3 py-3">
-                    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-start gap-3">
+                    <div className="grid grid-cols-[80px_minmax(0,1fr)] items-start gap-2.5">
                       <img
                         src={property.imagenPrincipal}
                         alt={property.titulo}
-                        className="h-16 w-[88px] border border-stone object-cover"
+                        className="h-14 w-20 border border-stone object-cover"
                       />
                       <div className="min-w-0">
-                        <p className="break-words text-sm font-semibold leading-tight text-ink">{property.titulo}</p>
+                        <p className="break-words text-[13px] font-semibold leading-tight text-ink">{property.titulo}</p>
                         <p className="mt-1 break-words text-xs leading-snug text-slate">{property.ubicacion}</p>
                         <p className="mt-1.5 text-[11px] uppercase tracking-editorial text-slate">
                           {toTitle(property.tipoPropiedad)}
@@ -233,7 +233,7 @@ export function AdminPropertiesPage() {
                         compact
                         title="Ver en el sitio"
                         ariaLabel="Ver en el sitio"
-                        className="h-8 w-8 px-0"
+                        className="h-7 w-7 px-0"
                       >
                         <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
                           <path d="M3 10h14M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" stroke="currentColor" strokeWidth="1.3" />
