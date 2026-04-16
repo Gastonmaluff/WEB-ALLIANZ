@@ -3,7 +3,6 @@ import { MOCK_PROPERTIES } from "../mocks/properties";
 import { normalizePolygonPoints } from "../utils/polygon";
 import { slugify } from "../utils/format";
 import { fetchProperties, upsertPropertyById, deleteProperty as deletePropertyById } from "../firebase/firestore";
-import { auth } from "../firebase/config";
 
 const PROPERTIES_STORAGE_KEY = "allianz.properties.v1";
 const SALES_STORAGE_KEY = "allianz.sales.v1";
@@ -137,8 +136,8 @@ export async function syncPropertiesFromCloud({ force = false } = {}) {
         const rawLocal = window.localStorage.getItem(PROPERTIES_STORAGE_KEY);
         const hasLocalSnapshot = Boolean(rawLocal);
 
-        // If admin is authenticated and has local data, bootstrap Firestore once.
-        if (hasLocalSnapshot && auth.currentUser) {
+        // If cloud is empty and local has data, bootstrap Firestore once.
+        if (hasLocalSnapshot) {
           let localItems = [];
           try {
             const parsed = JSON.parse(rawLocal);

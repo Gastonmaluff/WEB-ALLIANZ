@@ -4,12 +4,12 @@ service cloud.firestore {
     // Public website data
     match /properties/{document=**} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if true;
     }
 
     match /testimonials/{document=**} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if true;
     }
 
     // All other collections stay private
