@@ -128,26 +128,51 @@ export async function syncPropertiesFromCloud({ force = false } = {}) {
 
   syncingPromise = (async () => {
     try {
+      const rawLocal = window.localStorage.getItem(PROPERTIES_STORAGE_KEY);
+      let localItems = [];
+      if (rawLocal) {
+        try {
+          const parsed = JSON.parse(rawLocal);
+          if (Array.isArray(parsed)) {
+            localItems = parsed.map((item, index) => normalizeProperty(item, index));
+          }
+        } catch {
+          localItems = [];
+        }
+      }
+
       const remote = await fetchProperties();
       if (Array.isArray(remote) && remote.length) {
         const normalizedRemote = remote.map((item, index) => normalizeProperty(item, index));
-        saveProperties(normalizedRemote);
+
+        // Keep remote as source of truth, but upload any local-only records that are missing in cloud.
+        if (localItems.length > 0) {
+          const remoteIds = new Set(normalizedRemote.map((item) => item.id));
+          const localOnly = localItems.filter((item) => !remoteIds.has(item.id));
+          if (localOnly.length > 0) {
+            for (const item of localOnly) {
+              await upsertPropertyById(item.id, item);
+            }
+            const remoteAfterMerge = await fetchProperties();
+            if (Array.isArray(remoteAfterMerge) && remoteAfterMerge.length) {
+              const normalizedMerged = remoteAfterMerge.map((item, index) =>
+                normalizeProperty(item, index)
+              );
+              saveProperties(normalizedMerged);
+            } else {
+              saveProperties(normalizedRemote);
+            }
+          } else {
+            saveProperties(normalizedRemote);
+          }
+        } else {
+          saveProperties(normalizedRemote);
+        }
       } else {
-        const rawLocal = window.localStorage.getItem(PROPERTIES_STORAGE_KEY);
         const hasLocalSnapshot = Boolean(rawLocal);
 
         // If cloud is empty and local has data, bootstrap Firestore once.
         if (hasLocalSnapshot) {
-          let localItems = [];
-          try {
-            const parsed = JSON.parse(rawLocal);
-            if (Array.isArray(parsed)) {
-              localItems = parsed.map((item, index) => normalizeProperty(item, index));
-            }
-          } catch {
-            localItems = [];
-          }
-
           if (localItems.length > 0) {
             for (const item of localItems) {
               await upsertPropertyById(item.id, item);
