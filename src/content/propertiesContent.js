@@ -3,6 +3,7 @@ import { MOCK_PROPERTIES } from "../mocks/properties";
 import { normalizePolygonPoints } from "../utils/polygon";
 import { slugify } from "../utils/format";
 import { fetchProperties, upsertPropertyById, deleteProperty as deletePropertyById } from "../firebase/firestore";
+import { auth } from "../firebase/config";
 
 const PROPERTIES_STORAGE_KEY = "allianz.properties.v1";
 const SALES_STORAGE_KEY = "allianz.sales.v1";
@@ -132,8 +133,37 @@ export async function syncPropertiesFromCloud({ force = false } = {}) {
       if (Array.isArray(remote) && remote.length) {
         const normalizedRemote = remote.map((item, index) => normalizeProperty(item, index));
         saveProperties(normalizedRemote);
-      } else if (!window.localStorage.getItem(PROPERTIES_STORAGE_KEY)) {
-        saveProperties(getDefaultProperties());
+      } else {
+        const rawLocal = window.localStorage.getItem(PROPERTIES_STORAGE_KEY);
+        const hasLocalSnapshot = Boolean(rawLocal);
+
+        // If admin is authenticated and has local data, bootstrap Firestore once.
+        if (hasLocalSnapshot && auth.currentUser) {
+          let localItems = [];
+          try {
+            const parsed = JSON.parse(rawLocal);
+            if (Array.isArray(parsed)) {
+              localItems = parsed.map((item, index) => normalizeProperty(item, index));
+            }
+          } catch {
+            localItems = [];
+          }
+
+          if (localItems.length > 0) {
+            for (const item of localItems) {
+              await upsertPropertyById(item.id, item);
+            }
+            const remoteAfterBootstrap = await fetchProperties();
+            if (Array.isArray(remoteAfterBootstrap) && remoteAfterBootstrap.length) {
+              const normalizedRemote = remoteAfterBootstrap.map((item, index) =>
+                normalizeProperty(item, index)
+              );
+              saveProperties(normalizedRemote);
+            }
+          }
+        } else if (!hasLocalSnapshot) {
+          saveProperties(getDefaultProperties());
+        }
       }
       hasCloudSync = true;
       return getProperties();
