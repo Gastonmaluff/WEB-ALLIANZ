@@ -4,6 +4,12 @@ import { getProperties, removeProperty, subscribeProperties } from "../../conten
 import { ROUTES } from "../../router/paths";
 import { AppButton } from "../../components/common/AppButton";
 import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
+import {
+  buildShareImageFileName,
+  dataUrlToBlob,
+  downloadDataUrl,
+  getPropertyPrimaryImageDataUrl,
+} from "../../utils/propertyImageShare";
 
 function getStatusBadge(status) {
   const normalized = String(status || "").toLowerCase();
@@ -44,6 +50,46 @@ function getPublicDetailUrl(slug) {
   return new URL(`${normalizedBase}propiedades/${slug}`, window.location.origin).toString();
 }
 
+function getPropertyPriceLabel(property) {
+  return property?.consultarPrecio
+    ? "Consultar precio"
+    : formatCurrency(property?.precio, property?.moneda);
+}
+
+function buildCommercialWhatsappMessage(property) {
+  const publicUrl = getPublicDetailUrl(property.slug);
+  const lines = [
+    "Allianz Bienes Raices",
+    `${property?.titulo || "Propiedad"}`,
+    `Operacion: ${formatOperationLabel(property?.tipoOperacion) || "-"}`,
+    `Precio: ${getPropertyPriceLabel(property)}`,
+    Number(property?.superficie || 0) > 0 ? `Superficie: ${property.superficie} m2` : null,
+    property?.descripcionCorta ? `Descripcion: ${property.descripcionCorta}` : null,
+    property?.googleMapsUrl ? `Google Maps: ${property.googleMapsUrl}` : null,
+    `Ver propiedad: ${publicUrl}`,
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  const ok = document.execCommand("copy");
+  textArea.remove();
+  if (!ok) {
+    throw new Error("copy_failed");
+  }
+}
+
 function MenuItem({ onClick, danger = false, disabled = false, children }) {
   return (
     <button
@@ -63,10 +109,16 @@ function MenuItem({ onClick, danger = false, disabled = false, children }) {
 
 function PropertyActionsMenu({
   property,
+  onShareWhatsApp,
+  onCopyText,
+  onDownloadImage,
+  onCopyImage,
   onDelete,
   onExportPdf,
   isDeleting = false,
   isExporting = false,
+  isDownloadingImage = false,
+  isCopyingImage = false,
   compact = false,
 }) {
   const navigate = useNavigate();
@@ -97,7 +149,7 @@ function PropertyActionsMenu({
   }, [open]);
 
   const buttonSize = compact ? "h-8 w-8" : "h-9 w-9";
-  const menuWidth = compact ? "w-44" : "w-48";
+  const menuWidth = compact ? "w-64" : "w-72";
 
   const handleEdit = () => {
     setOpen(false);
@@ -117,6 +169,26 @@ function PropertyActionsMenu({
   const handleViewSite = () => {
     setOpen(false);
     window.open(publicUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleShare = () => {
+    setOpen(false);
+    onShareWhatsApp();
+  };
+
+  const handleCopyTextClick = async () => {
+    setOpen(false);
+    await onCopyText();
+  };
+
+  const handleDownloadImageClick = async () => {
+    setOpen(false);
+    await onDownloadImage();
+  };
+
+  const handleCopyImageClick = async () => {
+    setOpen(false);
+    await onCopyImage();
   };
 
   return (
@@ -148,6 +220,47 @@ function PropertyActionsMenu({
             </svg>
             Editar
           </MenuItem>
+          <MenuItem onClick={handleShare}>
+            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+              <path
+                d="M6.5 10a2 2 0 1 0 0 .01V10Zm7-4a2 2 0 1 0 0 .01V6Zm0 8a2 2 0 1 0 0 .01V14ZM8.2 9.1l3.1-1.8M8.2 10.9l3.1 1.8"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+            Enviar por WhatsApp
+          </MenuItem>
+          <MenuItem onClick={handleCopyTextClick}>
+            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+              <path d="M7 6h8v10H7zM5 4h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            </svg>
+            Copiar texto
+          </MenuItem>
+          <MenuItem onClick={handleDownloadImageClick} disabled={isDownloadingImage}>
+            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+              <path
+                d="M10 3v8m0 0 3-3m-3 3-3-3M4 13v2h12v-2"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {isDownloadingImage ? "Descargando..." : "Descargar imagen principal"}
+          </MenuItem>
+          <MenuItem onClick={handleCopyImageClick} disabled={isCopyingImage}>
+            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
+              <path
+                d="M7 6h8v10H7zM5 4h8M5 8H3v8h8v-2"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+            {isCopyingImage ? "Copiando..." : "Copiar imagen principal"}
+          </MenuItem>
+          <div className="border-t border-stone/80" />
           <MenuItem onClick={handleDelete} danger disabled={isDeleting}>
             <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
               <path d="M5 6h10M8 6V4h4v2m-5 0v9m3-9v9m3-9v9" stroke="currentColor" strokeWidth="1.3" />
@@ -183,6 +296,8 @@ export function AdminPropertiesPage() {
   const [feedback, setFeedback] = useState(null);
   const [deletingId, setDeletingId] = useState("");
   const [exportingId, setExportingId] = useState("");
+  const [downloadingImageId, setDownloadingImageId] = useState("");
+  const [copyingImageId, setCopyingImageId] = useState("");
 
   useEffect(() => {
     return subscribeProperties((items) => setProperties(items));
@@ -234,6 +349,76 @@ export function AdminPropertiesPage() {
       });
     } finally {
       setExportingId("");
+    }
+  };
+
+  const handleShareWhatsApp = (property) => {
+    const message = buildCommercialWhatsappMessage(property);
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopyPropertyText = async (property) => {
+    try {
+      await copyTextToClipboard(buildCommercialWhatsappMessage(property));
+      setFeedback({
+        type: "success",
+        message: "Texto copiado.",
+      });
+    } catch {
+      setFeedback({
+        type: "error",
+        message: "No se pudo copiar el texto. Intenta nuevamente.",
+      });
+    }
+  };
+
+  const handleDownloadPrimaryImage = async (property) => {
+    setDownloadingImageId(property.id);
+    try {
+      const dataUrl = await getPropertyPrimaryImageDataUrl(property);
+      if (!dataUrl) {
+        throw new Error("image_not_found");
+      }
+      downloadDataUrl(dataUrl, buildShareImageFileName(property));
+      setFeedback({
+        type: "success",
+        message: "Imagen principal descargada.",
+      });
+    } catch {
+      setFeedback({
+        type: "error",
+        message:
+          "No se pudo descargar la imagen principal. Verifica la carga de imagenes de esta propiedad.",
+      });
+    } finally {
+      setDownloadingImageId("");
+    }
+  };
+
+  const handleCopyPrimaryImage = async (property) => {
+    setCopyingImageId(property.id);
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+        throw new Error("clipboard_not_supported");
+      }
+      const dataUrl = await getPropertyPrimaryImageDataUrl(property);
+      if (!dataUrl) throw new Error("image_not_found");
+      const blob = dataUrlToBlob(dataUrl);
+      if (!blob) throw new Error("invalid_image");
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      setFeedback({
+        type: "success",
+        message: "Imagen copiada.",
+      });
+    } catch {
+      setFeedback({
+        type: "warning",
+        message:
+          "Tu navegador no permitio copiar la imagen. Descargala y adjuntala manualmente.",
+      });
+    } finally {
+      setCopyingImageId("");
     }
   };
 
@@ -327,8 +512,14 @@ export function AdminPropertiesPage() {
                   <td className="px-3 py-3 text-right">
                     <PropertyActionsMenu
                       property={property}
+                      onShareWhatsApp={() => handleShareWhatsApp(property)}
+                      onCopyText={() => handleCopyPropertyText(property)}
+                      onDownloadImage={() => handleDownloadPrimaryImage(property)}
+                      onCopyImage={() => handleCopyPrimaryImage(property)}
                       isDeleting={deletingId === property.id}
                       isExporting={exportingId === property.id}
+                      isDownloadingImage={downloadingImageId === property.id}
+                      isCopyingImage={copyingImageId === property.id}
                       onDelete={() => handleDeleteProperty(property)}
                       onExportPdf={() => handleExportPropertyPdf(property)}
                     />
@@ -371,8 +562,14 @@ export function AdminPropertiesPage() {
                 <PropertyActionsMenu
                   property={property}
                   compact
+                  onShareWhatsApp={() => handleShareWhatsApp(property)}
+                  onCopyText={() => handleCopyPropertyText(property)}
+                  onDownloadImage={() => handleDownloadPrimaryImage(property)}
+                  onCopyImage={() => handleCopyPrimaryImage(property)}
                   isDeleting={deletingId === property.id}
                   isExporting={exportingId === property.id}
+                  isDownloadingImage={downloadingImageId === property.id}
+                  isCopyingImage={copyingImageId === property.id}
                   onDelete={() => handleDeleteProperty(property)}
                   onExportPdf={() => handleExportPropertyPdf(property)}
                 />
