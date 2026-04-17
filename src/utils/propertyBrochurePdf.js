@@ -33,17 +33,97 @@ async function blobToDataUrl(blob) {
   });
 }
 
-async function fetchAsDataUrl(url) {
-  if (!url) return null;
-  if (String(url).startsWith("data:image/")) return url;
+function buildImageCandidates(url) {
+  const source = String(url || "").trim();
+  if (!source) return [];
+  const candidates = [source];
+
   try {
-    const response = await fetch(url, { mode: "cors", cache: "no-store" });
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    return blobToDataUrl(blob);
+    const parsed = new URL(source);
+    const decodedPath = parsed.pathname.includes("/o/")
+      ? decodeURIComponent(parsed.pathname.split("/o/")[1] || "")
+      : "";
+    if (
+      parsed.hostname === "firebasestorage.googleapis.com" &&
+      decodedPath &&
+      parsed.pathname.includes("/v0/b/")
+    ) {
+      const bucket = parsed.pathname.split("/v0/b/")[1]?.split("/o/")[0];
+      if (bucket) {
+        candidates.push(`https://storage.googleapis.com/${bucket}/${decodedPath}`);
+      }
+    }
+  } catch {
+    // ignore parsing errors
+  }
+
+  return [...new Set(candidates)];
+}
+
+async function fetchBlobViaXhr(url) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("GET", url, true);
+    request.responseType = "blob";
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300 && request.response) {
+        resolve(request.response);
+      } else {
+        reject(new Error(`HTTP ${request.status}`));
+      }
+    };
+    request.onerror = () => reject(new Error("XHR failed"));
+    request.send();
+  });
+}
+
+async function imageUrlToCanvasDataUrl(url) {
+  if (!url || typeof window === "undefined") return null;
+  try {
+    const image = await loadImageElement(url);
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || 1200;
+    canvas.height = image.naturalHeight || 800;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.9);
   } catch {
     return null;
   }
+}
+
+async function fetchAsDataUrl(url) {
+  if (!url) return null;
+  if (String(url).startsWith("data:image/")) return url;
+
+  const candidates = buildImageCandidates(url);
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, { mode: "cors", cache: "no-store" });
+      if (response.ok) {
+        const blob = await response.blob();
+        const result = await blobToDataUrl(blob);
+        if (result) return result;
+      }
+    } catch {
+      // try next strategy
+    }
+
+    try {
+      const blob = await fetchBlobViaXhr(candidate);
+      const result = await blobToDataUrl(blob);
+      if (result) return result;
+    } catch {
+      // try canvas fallback
+    }
+
+    const canvasResult = await imageUrlToCanvasDataUrl(candidate);
+    if (canvasResult) return canvasResult;
+  }
+
+  return null;
 }
 
 async function loadImageElement(url) {
@@ -225,13 +305,15 @@ export async function exportPropertyBrochurePdf(property) {
 
   const publicationUrl = absoluteUrl(`propiedades/${property.slug}`);
   const logoMarkUrl = absoluteUrl("logo-allianz-mark.png");
+  const logoWordmarkUrl = absoluteUrl("logo-allianz-wordmark.png");
   const emittedAt = new Date();
   const emittedDate = new Intl.DateTimeFormat("es-PY", { dateStyle: "medium" }).format(emittedAt);
   const refCode = property?.id || property?.slug || "N/A";
   const statusStyle = getStatusStyle(property?.estado);
 
-  const [logoMarkData, qrData, mapQrData] = await Promise.all([
+  const [logoMarkData, logoWordmarkData, qrData, mapQrData] = await Promise.all([
     fetchAsDataUrl(logoMarkUrl),
+    fetchAsDataUrl(logoWordmarkUrl),
     QRCode.toDataURL(publicationUrl, {
       margin: 1,
       width: 280,
@@ -266,13 +348,17 @@ export async function exportPropertyBrochurePdf(property) {
   if (logoMarkData) {
     doc.addImage(logoMarkData, "PNG", margin, 5.8, 8, 10.8);
   }
-  doc.setTextColor(235, 243, 250);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12.6);
-  doc.text("Allianz", margin + 10.2, 11.2);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.6);
-  doc.text("Bienes Raices", margin + 10.2, 15.7);
+  if (logoWordmarkData) {
+    doc.addImage(logoWordmarkData, "PNG", margin + 10.2, 7.4, 37, 8.2);
+  } else {
+    doc.setTextColor(235, 243, 250);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12.6);
+    doc.text("Allianz", margin + 10.2, 11.2);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.6);
+    doc.text("Bienes Raices", margin + 10.2, 15.7);
+  }
 
   doc.setTextColor(207, 222, 235);
   doc.setFont("helvetica", "normal");
