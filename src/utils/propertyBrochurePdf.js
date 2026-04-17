@@ -166,6 +166,56 @@ function drawWrappedText(doc, text, x, y, maxWidth, lineHeight = 4.8) {
   return lines.length * lineHeight;
 }
 
+function getStatusStyle(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "disponible") {
+    return { label: "Disponible", fill: [232, 248, 239], text: [37, 118, 76], border: [157, 224, 186] };
+  }
+  if (normalized === "reservado") {
+    return { label: "Reservado", fill: [255, 247, 232], text: [160, 100, 24], border: [239, 207, 149] };
+  }
+  if (normalized === "vendido") {
+    return { label: "Vendido", fill: [240, 243, 247], text: [89, 105, 122], border: [205, 214, 223] };
+  }
+  if (normalized === "alquilado") {
+    return { label: "Alquilado", fill: [235, 244, 252], text: [36, 95, 149], border: [178, 209, 236] };
+  }
+  return { label: toTitle(normalized), fill: [240, 243, 247], text: [89, 105, 122], border: [205, 214, 223] };
+}
+
+async function fitImageToBox(imageDataUrl, boxWidthMm, boxHeightMm, quality = 0.9) {
+  if (!imageDataUrl || typeof window === "undefined") return null;
+  try {
+    const image = await loadImageElement(imageDataUrl);
+    const targetRatio = boxWidthMm / boxHeightMm;
+    const imageRatio = image.naturalWidth / image.naturalHeight;
+    let sx = 0;
+    let sy = 0;
+    let sw = image.naturalWidth;
+    let sh = image.naturalHeight;
+
+    if (imageRatio > targetRatio) {
+      sh = image.naturalHeight;
+      sw = sh * targetRatio;
+      sx = (image.naturalWidth - sw) / 2;
+    } else {
+      sw = image.naturalWidth;
+      sh = sw / targetRatio;
+      sy = (image.naturalHeight - sh) / 2;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1200, Math.round(boxWidthMm * 10));
+    canvas.height = Math.max(700, Math.round(boxHeightMm * 10));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return imageDataUrl;
+    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return imageDataUrl;
+  }
+}
+
 export async function exportPropertyBrochurePdf(property) {
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -175,14 +225,13 @@ export async function exportPropertyBrochurePdf(property) {
 
   const publicationUrl = absoluteUrl(`propiedades/${property.slug}`);
   const logoMarkUrl = absoluteUrl("logo-allianz-mark.png");
-  const logoWordmarkUrl = absoluteUrl("logo-allianz-wordmark.png");
   const emittedAt = new Date();
   const emittedDate = new Intl.DateTimeFormat("es-PY", { dateStyle: "medium" }).format(emittedAt);
   const refCode = property?.id || property?.slug || "N/A";
+  const statusStyle = getStatusStyle(property?.estado);
 
-  const [logoMarkData, logoWordmarkData, qrData, mapQrData] = await Promise.all([
+  const [logoMarkData, qrData, mapQrData] = await Promise.all([
     fetchAsDataUrl(logoMarkUrl),
-    fetchAsDataUrl(logoWordmarkUrl),
     QRCode.toDataURL(publicationUrl, {
       margin: 1,
       width: 280,
@@ -198,150 +247,167 @@ export async function exportPropertyBrochurePdf(property) {
   ]);
 
   const lotOverlayImage = await createLotOverlayImage(property);
-  const gallery = pickGalleryImages(property);
-  const additional = gallery.filter((img) => img !== property?.imagenPrincipal).slice(0, 2);
+  const principalImageData = await fetchAsDataUrl(property?.imagenPrincipal);
+  const mainImageDataRaw = lotOverlayImage || principalImageData;
+  const galleryPool = pickGalleryImages(property).filter((img) => img !== property?.imagenPrincipal);
+  const additionalTargets =
+    lotOverlayImage && property?.imagenPrincipal
+      ? [property.imagenPrincipal, ...galleryPool.filter((img) => img !== property.imagenPrincipal)]
+      : galleryPool;
+
   const [mainImageData, photoAData, photoBData] = await Promise.all([
-    lotOverlayImage || fetchAsDataUrl(property?.imagenPrincipal),
-    fetchAsDataUrl(additional[0]),
-    fetchAsDataUrl(additional[1]),
+    fitImageToBox(mainImageDataRaw, contentWidth, 86, 0.9),
+    fitImageToBox(await fetchAsDataUrl(additionalTargets[0]), (contentWidth - 4) / 2, 30, 0.88),
+    fitImageToBox(await fetchAsDataUrl(additionalTargets[1]), (contentWidth - 4) / 2, 30, 0.88),
   ]);
 
   doc.setFillColor(10, 28, 45);
-  doc.rect(0, 0, pageWidth, 26, "F");
+  doc.rect(0, 0, pageWidth, 24, "F");
   if (logoMarkData) {
-    doc.addImage(logoMarkData, "PNG", margin, 6.2, 9, 12.2);
+    doc.addImage(logoMarkData, "PNG", margin, 5.8, 8, 10.8);
   }
-  if (logoWordmarkData) {
-    doc.addImage(logoWordmarkData, "PNG", margin + 11.5, 8.1, 36, 8.5);
-  } else {
-    doc.setTextColor(235, 243, 250);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text("ALLIANZ", margin + 11.5, 13.6);
-    doc.setFontSize(8.3);
-    doc.text("BIENES RAICES", margin + 11.5, 18.2);
-  }
+  doc.setTextColor(235, 243, 250);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12.6);
+  doc.text("Allianz", margin + 10.2, 11.2);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.6);
+  doc.text("Bienes Raices", margin + 10.2, 15.7);
+
   doc.setTextColor(207, 222, 235);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.text(`Emision: ${emittedDate}`, pageWidth - margin, 10.6, { align: "right" });
-  doc.text(`Referencia: ${refCode}`, pageWidth - margin, 15.4, { align: "right" });
+  doc.setFontSize(8.2);
+  doc.text(`Emision: ${emittedDate}`, pageWidth - margin, 9.8, { align: "right" });
+  doc.text(`Referencia: ${refCode}`, pageWidth - margin, 14.3, { align: "right" });
 
-  let cursorY = 34;
+  let cursorY = 29;
   doc.setTextColor(13, 27, 44);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  const titleHeight = drawWrappedText(doc, property?.titulo || "Propiedad", margin, cursorY, contentWidth - 48, 7);
+  doc.setFontSize(14.8);
+  const titleHeight = drawWrappedText(doc, property?.titulo || "Propiedad", margin, cursorY, contentWidth - 8, 5.8);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(10.5);
-  doc.setTextColor(77, 96, 116);
-  doc.text(formatOperationLabel(property?.tipoOperacion), margin, cursorY + titleHeight + 1.6);
-  doc.text(priceLabel(property), margin + 36, cursorY + titleHeight + 1.6);
-  doc.text(property?.ubicacion || "-", margin + 86, cursorY + titleHeight + 1.6);
-  cursorY += titleHeight + 6;
+  doc.setFontSize(9.6);
+  doc.setTextColor(71, 92, 114);
+  doc.text(formatOperationLabel(property?.tipoOperacion), margin, cursorY + titleHeight + 1.4);
+  doc.text(priceLabel(property), margin + 40, cursorY + titleHeight + 1.4);
+  doc.text(property?.ubicacion || "-", pageWidth - margin, cursorY + titleHeight + 1.4, { align: "right" });
+  cursorY += titleHeight + 4.3;
 
   doc.setDrawColor(220, 226, 232);
   doc.line(margin, cursorY, pageWidth - margin, cursorY);
-  cursorY += 4.6;
+  cursorY += 3.8;
 
-  const mainImageHeight = 90;
+  const mainImageHeight = 86;
   if (mainImageData) {
     doc.addImage(mainImageData, "JPEG", margin, cursorY, contentWidth, mainImageHeight, undefined, "FAST");
   } else {
     doc.setFillColor(239, 243, 247);
     doc.rect(margin, cursorY, contentWidth, mainImageHeight, "F");
-    doc.setTextColor(111, 128, 145);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("Sin imagen principal", margin + contentWidth / 2, cursorY + mainImageHeight / 2, { align: "center" });
   }
 
   cursorY += mainImageHeight + 5;
 
+  const photoHeight = 30;
+  const photoGap = 4;
+  const photoWidth = (contentWidth - photoGap) / 2;
+  if (photoAData) {
+    doc.addImage(photoAData, "JPEG", margin, cursorY, photoWidth, photoHeight, undefined, "FAST");
+  } else {
+    doc.setFillColor(239, 243, 247);
+    doc.rect(margin, cursorY, photoWidth, photoHeight, "F");
+  }
+  if (photoBData) {
+    doc.addImage(photoBData, "JPEG", margin + photoWidth + photoGap, cursorY, photoWidth, photoHeight, undefined, "FAST");
+  } else {
+    doc.setFillColor(239, 243, 247);
+    doc.rect(margin + photoWidth + photoGap, cursorY, photoWidth, photoHeight, "F");
+  }
+  cursorY += photoHeight + 6;
+
   const leftWidth = contentWidth * 0.62;
   const rightX = margin + leftWidth + 4;
   const rightWidth = contentWidth - leftWidth - 4;
+  const rightBoxHeight = 33;
+  const rightGap = 4;
+  const rightBottomY = cursorY + rightBoxHeight + rightGap;
+  const footerY = pageHeight - 18;
+  const leftBottom = footerY - 3;
 
+  doc.setDrawColor(222, 228, 234);
+  doc.rect(margin, cursorY - 2.5, leftWidth, leftBottom - (cursorY - 2.5));
   doc.setFont("helvetica", "bold");
   doc.setTextColor(13, 27, 44);
-  doc.setFontSize(11.2);
-  doc.text("Ficha comercial", margin, cursorY);
+  doc.setFontSize(10.6);
+  doc.text("Ficha comercial", margin + 3, cursorY + 2.4);
+
+  doc.setFillColor(statusStyle.fill[0], statusStyle.fill[1], statusStyle.fill[2]);
+  doc.setDrawColor(statusStyle.border[0], statusStyle.border[1], statusStyle.border[2]);
+  doc.roundedRect(margin + 3, cursorY + 5.5, 28, 6.7, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(statusStyle.text[0], statusStyle.text[1], statusStyle.text[2]);
+  doc.setFontSize(8.8);
+  doc.text(statusStyle.label.toUpperCase(), margin + 17, cursorY + 10.1, { align: "center" });
+
+  const surface = Number(property?.superficie || 0);
+  doc.setTextColor(13, 27, 44);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text("Superficie", margin + 3, cursorY + 16.7);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16.5);
+  doc.text(surface > 0 ? `${surface} m2` : "-", margin + 3, cursorY + 24.1);
+
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(9.2);
-  const statusLabel = toTitle(String(property?.estado || "").replaceAll("_", " "));
-  const facts = getPrimaryFacts(property);
-  const firstFacts = [
-    `Estado: ${statusLabel}`,
-    ...facts.slice(0, 6),
-  ];
-  let factsY = cursorY + 4.8;
-  firstFacts.forEach((fact) => {
-    doc.text(`- ${fact}`, margin, factsY);
-    factsY += 4.3;
+  doc.setFontSize(8.8);
+  let factsY = cursorY + 29.5;
+  const facts = getPrimaryFacts(property).filter((item) => !String(item).toLowerCase().startsWith("superficie"));
+  facts.slice(0, 4).forEach((fact) => {
+    doc.text(`- ${fact}`, margin + 3, factsY);
+    factsY += 4;
   });
 
   const desc = property?.descripcionCorta || property?.descripcionLarga || "";
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(9.1);
-  const descHeight = drawWrappedText(doc, desc, margin, factsY + 1.2, leftWidth - 2.2, 4.25);
+  doc.setFontSize(8.8);
+  drawWrappedText(doc, desc, margin + 3, factsY + 1.5, leftWidth - 6, 4.1);
 
+  doc.setDrawColor(222, 228, 234);
+  doc.rect(rightX, cursorY - 2.5, rightWidth, rightBoxHeight);
   doc.setDrawColor(219, 226, 233);
-  doc.rect(rightX, cursorY - 2.5, rightWidth, 42);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(13, 27, 44);
-  doc.setFontSize(10);
-  doc.text("Publicacion", rightX + 2.8, cursorY + 2.6);
+  doc.setFontSize(9.7);
+  doc.text("Publicacion", rightX + 2.6, cursorY + 2.6);
   if (qrData) {
-    doc.addImage(qrData, "PNG", rightX + 2.8, cursorY + 5.2, 18, 18);
+    doc.addImage(qrData, "PNG", rightX + 2.8, cursorY + 5.2, 17.2, 17.2);
   }
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(8.2);
-  drawWrappedText(doc, publicationUrl, rightX + 22.2, cursorY + 11.8, rightWidth - 24.8, 3.6);
+  doc.setFontSize(7.8);
+  drawWrappedText(doc, publicationUrl, rightX + 21.6, cursorY + 10.8, rightWidth - 23.8, 3.4);
 
-  const mapBoxY = cursorY + 42.8;
-  doc.rect(rightX, mapBoxY, rightWidth, 30);
+  const mapBoxY = cursorY + rightBoxHeight + rightGap;
+  doc.setDrawColor(222, 228, 234);
+  doc.rect(rightX, mapBoxY, rightWidth, rightBoxHeight);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(13, 27, 44);
   doc.setFontSize(9.5);
-  doc.text("Ubicacion", rightX + 2.8, mapBoxY + 4.5);
+  doc.text("Ubicacion", rightX + 2.6, mapBoxY + 4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(8.1);
+  doc.setFontSize(7.8);
   if (property?.googleMapsUrl) {
-    doc.text("Google Maps", rightX + 2.8, mapBoxY + 9.4);
-    drawWrappedText(doc, property.googleMapsUrl, rightX + 2.8, mapBoxY + 13.2, rightWidth - 19, 3.4);
+    doc.text("Google Maps", rightX + 2.6, mapBoxY + 9.4);
+    drawWrappedText(doc, property.googleMapsUrl, rightX + 2.6, mapBoxY + 13.2, rightWidth - 18.5, 3.4);
     if (mapQrData) {
-      doc.addImage(mapQrData, "PNG", rightX + rightWidth - 14.8, mapBoxY + 3, 11.2, 11.2);
+      doc.addImage(mapQrData, "PNG", rightX + rightWidth - 13.8, mapBoxY + 3, 10.2, 10.2);
     }
   } else {
-    doc.text("Sin enlace de mapa cargado", rightX + 2.8, mapBoxY + 10.2);
+    doc.text("Sin enlace de mapa cargado", rightX + 2.6, mapBoxY + 10.2);
   }
 
-  const photosY = Math.max(cursorY + 76.5, factsY + descHeight + 8);
-  const photoHeight = 30;
-  const photoGap = 4;
-  const photoWidth = (contentWidth - photoGap) / 2;
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(13, 27, 44);
-  doc.setFontSize(10);
-  doc.text("Galeria", margin, photosY - 2.3);
-  if (photoAData) {
-    doc.addImage(photoAData, "JPEG", margin, photosY, photoWidth, photoHeight, undefined, "FAST");
-  } else {
-    doc.setFillColor(239, 243, 247);
-    doc.rect(margin, photosY, photoWidth, photoHeight, "F");
-  }
-  if (photoBData) {
-    doc.addImage(photoBData, "JPEG", margin + photoWidth + photoGap, photosY, photoWidth, photoHeight, undefined, "FAST");
-  } else {
-    doc.setFillColor(239, 243, 247);
-    doc.rect(margin + photoWidth + photoGap, photosY, photoWidth, photoHeight, "F");
-  }
-
-  const footerY = pageHeight - 18;
   doc.setFillColor(245, 247, 250);
   doc.rect(0, footerY - 6, pageWidth, 30, "F");
   doc.setFont("helvetica", "bold");
@@ -356,4 +422,3 @@ export async function exportPropertyBrochurePdf(property) {
 
   doc.save(`ficha-${safeFileName(property?.titulo || property?.slug)}.pdf`);
 }
-
