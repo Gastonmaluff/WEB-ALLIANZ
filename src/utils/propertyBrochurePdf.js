@@ -57,6 +57,10 @@ function buildImageCandidates(url) {
     // ignore parsing errors
   }
 
+  if (/^https?:\/\//i.test(source) && !/images\.weserv\.nl/i.test(source)) {
+    candidates.push(`https://images.weserv.nl/?url=${encodeURIComponent(source)}`);
+  }
+
   return [...new Set(candidates)];
 }
 
