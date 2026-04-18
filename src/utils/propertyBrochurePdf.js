@@ -294,6 +294,12 @@ function drawActionBlock(doc, x, y, width, height, label) {
   doc.text(label, x + width / 2, y + height / 2 + 0.9, { align: "center" });
 }
 
+function addPdfLink(doc, x, y, width, height, url) {
+  const normalized = String(url || "").trim();
+  if (!normalized) return;
+  doc.link(x, y, width, height, { url: normalized });
+}
+
 function getStatusStyle(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "disponible") {
@@ -533,13 +539,25 @@ export async function exportPropertyBrochurePdf(property) {
   doc.setTextColor(71, 92, 114);
   doc.setFontSize(7.4);
   doc.text("Escanea para abrir", rightX + 21.4, cursorY + 10.5);
+  const publicationActionX = rightX + 21.2;
+  const publicationActionY = cursorY + 13.2;
+  const publicationActionWidth = Math.max(20, rightWidth - 23.8);
+  const publicationActionHeight = 7;
   drawActionBlock(
     doc,
-    rightX + 21.2,
-    cursorY + 13.2,
-    Math.max(20, rightWidth - 23.8),
-    7,
+    publicationActionX,
+    publicationActionY,
+    publicationActionWidth,
+    publicationActionHeight,
     "Ver publicacion"
+  );
+  addPdfLink(
+    doc,
+    publicationActionX,
+    publicationActionY,
+    publicationActionWidth,
+    publicationActionHeight,
+    publicationUrl
   );
 
   const mapBoxY = cursorY + rightBoxHeight + rightGap;
@@ -554,13 +572,25 @@ export async function exportPropertyBrochurePdf(property) {
   doc.setFontSize(7.4);
   if (property?.googleMapsUrl) {
     doc.text("Escanea para navegar", rightX + 21.4, mapBoxY + 10.5);
+    const mapActionX = rightX + 21.2;
+    const mapActionY = mapBoxY + 13.2;
+    const mapActionWidth = Math.max(20, rightWidth - 23.8);
+    const mapActionHeight = 7;
     drawActionBlock(
       doc,
-      rightX + 21.2,
-      mapBoxY + 13.2,
-      Math.max(20, rightWidth - 23.8),
-      7,
+      mapActionX,
+      mapActionY,
+      mapActionWidth,
+      mapActionHeight,
       "Abrir en Google Maps"
+    );
+    addPdfLink(
+      doc,
+      mapActionX,
+      mapActionY,
+      mapActionWidth,
+      mapActionHeight,
+      property.googleMapsUrl
     );
     if (mapQrData) {
       doc.addImage(mapQrData, "PNG", rightX + 2.8, mapBoxY + 5.2, 17.2, 17.2);
