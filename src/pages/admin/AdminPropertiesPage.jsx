@@ -6,7 +6,6 @@ import { AppButton } from "../../components/common/AppButton";
 import { formatCurrency, formatOperationLabel, toTitle } from "../../utils/format";
 import {
   buildShareImageFileName,
-  dataUrlToBlob,
   downloadDataUrl,
   getPropertyPrimaryImageDataUrl,
 } from "../../utils/propertyImageShare";
@@ -71,25 +70,6 @@ function buildCommercialWhatsappMessage(property) {
   return lines.filter(Boolean).join("\n");
 }
 
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const textArea = document.createElement("textarea");
-  textArea.value = text;
-  textArea.style.position = "fixed";
-  textArea.style.left = "-9999px";
-  document.body.appendChild(textArea);
-  textArea.focus();
-  textArea.select();
-  const ok = document.execCommand("copy");
-  textArea.remove();
-  if (!ok) {
-    throw new Error("copy_failed");
-  }
-}
-
 function MenuItem({ onClick, danger = false, disabled = false, children }) {
   return (
     <button
@@ -110,15 +90,12 @@ function MenuItem({ onClick, danger = false, disabled = false, children }) {
 function PropertyActionsMenu({
   property,
   onShareWhatsApp,
-  onCopyText,
   onDownloadImage,
-  onCopyImage,
   onDelete,
   onExportPdf,
   isDeleting = false,
   isExporting = false,
   isDownloadingImage = false,
-  isCopyingImage = false,
   compact = false,
 }) {
   const navigate = useNavigate();
@@ -176,19 +153,9 @@ function PropertyActionsMenu({
     onShareWhatsApp();
   };
 
-  const handleCopyTextClick = async () => {
-    setOpen(false);
-    await onCopyText();
-  };
-
   const handleDownloadImageClick = async () => {
     setOpen(false);
     await onDownloadImage();
-  };
-
-  const handleCopyImageClick = async () => {
-    setOpen(false);
-    await onCopyImage();
   };
 
   return (
@@ -231,12 +198,6 @@ function PropertyActionsMenu({
             </svg>
             Enviar por WhatsApp
           </MenuItem>
-          <MenuItem onClick={handleCopyTextClick}>
-            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
-              <path d="M7 6h8v10H7zM5 4h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
-            Copiar texto
-          </MenuItem>
           <MenuItem onClick={handleDownloadImageClick} disabled={isDownloadingImage}>
             <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
               <path
@@ -248,17 +209,6 @@ function PropertyActionsMenu({
               />
             </svg>
             {isDownloadingImage ? "Descargando..." : "Descargar imagen principal"}
-          </MenuItem>
-          <MenuItem onClick={handleCopyImageClick} disabled={isCopyingImage}>
-            <svg viewBox="0 0 20 20" fill="none" className="h-3.5 w-3.5">
-              <path
-                d="M7 6h8v10H7zM5 4h8M5 8H3v8h8v-2"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              />
-            </svg>
-            {isCopyingImage ? "Copiando..." : "Copiar imagen principal"}
           </MenuItem>
           <div className="border-t border-stone/80" />
           <MenuItem onClick={handleDelete} danger disabled={isDeleting}>
@@ -297,7 +247,6 @@ export function AdminPropertiesPage() {
   const [deletingId, setDeletingId] = useState("");
   const [exportingId, setExportingId] = useState("");
   const [downloadingImageId, setDownloadingImageId] = useState("");
-  const [copyingImageId, setCopyingImageId] = useState("");
 
   useEffect(() => {
     return subscribeProperties((items) => setProperties(items));
@@ -358,21 +307,6 @@ export function AdminPropertiesPage() {
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleCopyPropertyText = async (property) => {
-    try {
-      await copyTextToClipboard(buildCommercialWhatsappMessage(property));
-      setFeedback({
-        type: "success",
-        message: "Texto copiado.",
-      });
-    } catch {
-      setFeedback({
-        type: "error",
-        message: "No se pudo copiar el texto. Intenta nuevamente.",
-      });
-    }
-  };
-
   const handleDownloadPrimaryImage = async (property) => {
     setDownloadingImageId(property.id);
     try {
@@ -393,32 +327,6 @@ export function AdminPropertiesPage() {
       });
     } finally {
       setDownloadingImageId("");
-    }
-  };
-
-  const handleCopyPrimaryImage = async (property) => {
-    setCopyingImageId(property.id);
-    try {
-      if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-        throw new Error("clipboard_not_supported");
-      }
-      const dataUrl = await getPropertyPrimaryImageDataUrl(property);
-      if (!dataUrl) throw new Error("image_not_found");
-      const blob = dataUrlToBlob(dataUrl);
-      if (!blob) throw new Error("invalid_image");
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      setFeedback({
-        type: "success",
-        message: "Imagen copiada.",
-      });
-    } catch {
-      setFeedback({
-        type: "warning",
-        message:
-          "Tu navegador no permitio copiar la imagen. Descargala y adjuntala manualmente.",
-      });
-    } finally {
-      setCopyingImageId("");
     }
   };
 
@@ -513,13 +421,10 @@ export function AdminPropertiesPage() {
                     <PropertyActionsMenu
                       property={property}
                       onShareWhatsApp={() => handleShareWhatsApp(property)}
-                      onCopyText={() => handleCopyPropertyText(property)}
                       onDownloadImage={() => handleDownloadPrimaryImage(property)}
-                      onCopyImage={() => handleCopyPrimaryImage(property)}
                       isDeleting={deletingId === property.id}
                       isExporting={exportingId === property.id}
                       isDownloadingImage={downloadingImageId === property.id}
-                      isCopyingImage={copyingImageId === property.id}
                       onDelete={() => handleDeleteProperty(property)}
                       onExportPdf={() => handleExportPropertyPdf(property)}
                     />
@@ -563,13 +468,10 @@ export function AdminPropertiesPage() {
                   property={property}
                   compact
                   onShareWhatsApp={() => handleShareWhatsApp(property)}
-                  onCopyText={() => handleCopyPropertyText(property)}
                   onDownloadImage={() => handleDownloadPrimaryImage(property)}
-                  onCopyImage={() => handleCopyPrimaryImage(property)}
                   isDeleting={deletingId === property.id}
                   isExporting={exportingId === property.id}
                   isDownloadingImage={downloadingImageId === property.id}
-                  isCopyingImage={copyingImageId === property.id}
                   onDelete={() => handleDeleteProperty(property)}
                   onExportPdf={() => handleExportPropertyPdf(property)}
                 />

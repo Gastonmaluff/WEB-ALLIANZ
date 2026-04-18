@@ -141,6 +141,40 @@ async function loadImageElement(url) {
   });
 }
 
+function hexToRgb(hexColor, fallback = { r: 234, g: 242, b: 250 }) {
+  const clean = String(hexColor || "")
+    .replace("#", "")
+    .trim();
+  const normalized = clean.length === 3 ? clean.split("").map((c) => `${c}${c}`).join("") : clean;
+  if (normalized.length !== 6) return fallback;
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+}
+
+async function recolorLogoDataUrl(dataUrl, color = "#EAF2FA") {
+  if (!dataUrl || typeof window === "undefined") return dataUrl || null;
+  try {
+    const image = await loadImageElement(dataUrl);
+    const canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth || 1200;
+    canvas.height = image.naturalHeight || 400;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    const { r, g, b } = hexToRgb(color);
+    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "destination-in";
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = "source-over";
+    return canvas.toDataURL("image/png");
+  } catch {
+    return dataUrl;
+  }
+}
+
 function hexToRgba(hexColor, alpha = 1) {
   const clean = String(hexColor || "")
     .replace("#", "")
@@ -315,7 +349,7 @@ export async function exportPropertyBrochurePdf(property) {
   const refCode = property?.id || property?.slug || "N/A";
   const statusStyle = getStatusStyle(property?.estado);
 
-  const [logoMarkData, logoWordmarkData, qrData, mapQrData] = await Promise.all([
+  const [logoMarkRawData, logoWordmarkRawData, qrData, mapQrData] = await Promise.all([
     fetchAsDataUrl(logoMarkUrl),
     fetchAsDataUrl(logoWordmarkUrl),
     QRCode.toDataURL(publicationUrl, {
@@ -330,6 +364,10 @@ export async function exportPropertyBrochurePdf(property) {
           color: { dark: "#0B1B2C", light: "#FFFFFF" },
         }).catch(() => null)
       : Promise.resolve(null),
+  ]);
+  const [logoMarkData, logoWordmarkData] = await Promise.all([
+    recolorLogoDataUrl(logoMarkRawData, "#5EA6D0"),
+    recolorLogoDataUrl(logoWordmarkRawData, "#EAF2FA"),
   ]);
 
   const lotOverlayImage = await createLotOverlayImage(property);
@@ -348,12 +386,12 @@ export async function exportPropertyBrochurePdf(property) {
   ]);
 
   doc.setFillColor(10, 28, 45);
-  doc.rect(0, 0, pageWidth, 24, "F");
+  doc.rect(0, 0, pageWidth, 26, "F");
   if (logoMarkData) {
-    doc.addImage(logoMarkData, "PNG", margin, 5.8, 8, 10.8);
+    doc.addImage(logoMarkData, "PNG", margin, 6.4, 8, 10.6);
   }
   if (logoWordmarkData) {
-    doc.addImage(logoWordmarkData, "PNG", margin + 10.2, 7.4, 37, 8.2);
+    doc.addImage(logoWordmarkData, "PNG", margin + 10.4, 7.8, 42, 7.6);
   } else {
     doc.setTextColor(235, 243, 250);
     doc.setFont("helvetica", "bold");
@@ -367,10 +405,10 @@ export async function exportPropertyBrochurePdf(property) {
   doc.setTextColor(207, 222, 235);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.2);
-  doc.text(`Emision: ${emittedDate}`, pageWidth - margin, 9.8, { align: "right" });
-  doc.text(`Referencia: ${refCode}`, pageWidth - margin, 14.3, { align: "right" });
+  doc.text(`Emision: ${emittedDate}`, pageWidth - margin, 10.4, { align: "right" });
+  doc.text(`Referencia: ${refCode}`, pageWidth - margin, 15.1, { align: "right" });
 
-  let cursorY = 29;
+  let cursorY = 33.5;
   doc.setTextColor(13, 27, 44);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14.8);
