@@ -284,6 +284,16 @@ function drawWrappedText(doc, text, x, y, maxWidth, lineHeight = 4.8) {
   return lines.length * lineHeight;
 }
 
+function drawActionBlock(doc, x, y, width, height, label) {
+  doc.setFillColor(241, 246, 251);
+  doc.setDrawColor(197, 211, 226);
+  doc.roundedRect(x, y, width, height, 1.4, 1.4, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(13, 45, 73);
+  doc.setFontSize(8);
+  doc.text(label, x + width / 2, y + height / 2 + 0.9, { align: "center" });
+}
+
 function getStatusStyle(status) {
   const normalized = String(status || "").toLowerCase();
   if (normalized === "disponible") {
@@ -408,22 +418,30 @@ export async function exportPropertyBrochurePdf(property) {
   doc.text(`Emision: ${emittedDate}`, pageWidth - margin, 10.4, { align: "right" });
   doc.text(`Referencia: ${refCode}`, pageWidth - margin, 15.1, { align: "right" });
 
-  let cursorY = 33.5;
+  let cursorY = 40;
   doc.setTextColor(13, 27, 44);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14.8);
+  doc.setFontSize(18.4);
   const titleHeight = drawWrappedText(doc, property?.titulo || "Propiedad", margin, cursorY, contentWidth - 8, 5.8);
+
+  const detailsY = cursorY + titleHeight + 2.5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.4);
+  doc.setTextColor(71, 92, 114);
+  doc.text(formatOperationLabel(property?.tipoOperacion), margin, detailsY);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12.6);
+  doc.setTextColor(14, 43, 72);
+  doc.text(priceLabel(property), margin + 40, detailsY);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.6);
   doc.setTextColor(71, 92, 114);
-  doc.text(formatOperationLabel(property?.tipoOperacion), margin, cursorY + titleHeight + 1.4);
-  doc.text(priceLabel(property), margin + 40, cursorY + titleHeight + 1.4);
-  doc.text(property?.ubicacion || "-", pageWidth - margin, cursorY + titleHeight + 1.4, { align: "right" });
-  cursorY += titleHeight + 4.3;
+  doc.text(property?.ubicacion || "-", pageWidth - margin, detailsY, { align: "right" });
+  cursorY += titleHeight + 8.8;
 
   doc.setDrawColor(220, 226, 232);
   doc.line(margin, cursorY, pageWidth - margin, cursorY);
-  cursorY += 3.8;
+  cursorY += 5.8;
 
   const mainImageHeight = 86;
   if (mainImageData) {
@@ -507,14 +525,22 @@ export async function exportPropertyBrochurePdf(property) {
   doc.setFont("helvetica", "bold");
   doc.setTextColor(13, 27, 44);
   doc.setFontSize(9.7);
-  doc.text("Publicacion", rightX + 2.6, cursorY + 2.6);
+  doc.text("Publicacion online", rightX + 2.6, cursorY + 2.6);
   if (qrData) {
     doc.addImage(qrData, "PNG", rightX + 2.8, cursorY + 5.2, 17.2, 17.2);
   }
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(7.8);
-  drawWrappedText(doc, publicationUrl, rightX + 21.6, cursorY + 10.8, rightWidth - 23.8, 3.4);
+  doc.setFontSize(7.4);
+  doc.text("Escanea para abrir", rightX + 21.4, cursorY + 10.5);
+  drawActionBlock(
+    doc,
+    rightX + 21.2,
+    cursorY + 13.2,
+    Math.max(20, rightWidth - 23.8),
+    7,
+    "Ver publicacion"
+  );
 
   const mapBoxY = cursorY + rightBoxHeight + rightGap;
   doc.setDrawColor(222, 228, 234);
@@ -525,15 +551,22 @@ export async function exportPropertyBrochurePdf(property) {
   doc.text("Ubicacion", rightX + 2.6, mapBoxY + 4.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(71, 92, 114);
-  doc.setFontSize(7.8);
+  doc.setFontSize(7.4);
   if (property?.googleMapsUrl) {
-    doc.text("Google Maps", rightX + 2.6, mapBoxY + 9.4);
-    drawWrappedText(doc, property.googleMapsUrl, rightX + 2.6, mapBoxY + 13.2, rightWidth - 18.5, 3.4);
+    doc.text("Escanea para navegar", rightX + 21.4, mapBoxY + 10.5);
+    drawActionBlock(
+      doc,
+      rightX + 21.2,
+      mapBoxY + 13.2,
+      Math.max(20, rightWidth - 23.8),
+      7,
+      "Abrir en Google Maps"
+    );
     if (mapQrData) {
-      doc.addImage(mapQrData, "PNG", rightX + rightWidth - 13.8, mapBoxY + 3, 10.2, 10.2);
+      doc.addImage(mapQrData, "PNG", rightX + 2.8, mapBoxY + 5.2, 17.2, 17.2);
     }
   } else {
-    doc.text("Sin enlace de mapa cargado", rightX + 2.6, mapBoxY + 10.2);
+    doc.text("Google Maps no cargado", rightX + 2.6, mapBoxY + 10.2);
   }
 
   doc.setFillColor(245, 247, 250);
