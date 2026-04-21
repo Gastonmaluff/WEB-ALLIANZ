@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AppButton } from "../../components/common/AppButton";
 import { ROUTES } from "../../router/paths";
 import {
@@ -6,6 +6,7 @@ import {
   resetHeroContent,
   saveHeroContent,
 } from "../../content/heroContent";
+import { uploadPropertyImage } from "../../firebase/storage";
 
 function uniqueImages(images) {
   return [...new Set(images.map((img) => img.trim()).filter(Boolean))];
@@ -27,9 +28,10 @@ function validateHeroForm(form) {
 
 export function AdminHeroPage() {
   const [form, setForm] = useState(() => getHeroContent());
-  const [newImage, setNewImage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [errors, setErrors] = useState({});
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageInputRef = useRef(null);
 
   const previewImages = useMemo(() => form.images.filter(Boolean), [form.images]);
 
@@ -40,14 +42,40 @@ export function AdminHeroPage() {
     setFeedback("");
   };
 
-  const addImage = () => {
-    const image = newImage.trim();
-    if (!image) return;
-    const nextImages = uniqueImages([...form.images, image]);
-    setForm((prev) => ({ ...prev, images: nextImages }));
-    setNewImage("");
-    setErrors((prev) => ({ ...prev, images: "" }));
+  const openImagePicker = () => {
+    imageInputRef.current?.click();
+  };
+
+  const onImageFileChange = async (event) => {
+    const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/"));
+    if (!files.length) return;
+
+    setIsUploadingImage(true);
     setFeedback("");
+
+    try {
+      const uploadedUrls = [];
+      for (let index = 0; index < files.length; index += 1) {
+        const remoteUrl = await uploadPropertyImage(files[index], "hero-slider");
+        uploadedUrls.push(remoteUrl);
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        images: uniqueImages([...prev.images, ...uploadedUrls]),
+      }));
+      setErrors((prev) => ({ ...prev, images: "" }));
+      setFeedback(
+        uploadedUrls.length === 1
+          ? "Imagen agregada correctamente."
+          : `Se agregaron ${uploadedUrls.length} imagenes correctamente.`
+      );
+    } catch {
+      setFeedback("No se pudo subir la imagen. Intenta nuevamente.");
+    } finally {
+      setIsUploadingImage(false);
+      event.target.value = "";
+    }
   };
 
   const removeImage = (image) => {
@@ -191,16 +219,27 @@ export function AdminHeroPage() {
             Puedes agregar, quitar y reordenar imagenes para la portada principal.
           </p>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-wrap items-center gap-3">
             <input
-              value={newImage}
-              onChange={(event) => setNewImage(event.target.value)}
-              placeholder="https://..."
-              className="w-full flex-1 border border-stone bg-surface px-4 py-3 text-sm outline-none focus:border-ink"
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={onImageFileChange}
+              className="hidden"
             />
-            <AppButton type="button" variant="ghost" onClick={addImage} className="whitespace-nowrap">
-              Agregar imagen
+            <AppButton
+              type="button"
+              variant="ghost"
+              onClick={openImagePicker}
+              className="whitespace-nowrap"
+              disabled={isUploadingImage}
+            >
+              {isUploadingImage ? "Subiendo imagen..." : "Agregar imagen"}
             </AppButton>
+            <p className="text-xs text-slate">
+              Selecciona una o varias imagenes desde tu dispositivo.
+            </p>
           </div>
 
           {errors.images ? <p className="text-xs text-[#7A2A2A]">{errors.images}</p> : null}
